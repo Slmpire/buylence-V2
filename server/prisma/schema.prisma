@@ -1,0 +1,245 @@
+// ───────────────────────────────────────────────
+// Buylence — Database Schema
+// Campus marketplace + delivery for OAU students
+// ───────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────── ENUMS ───────────────
+
+enum Role {
+  BUYER
+  VENDOR
+  RIDER
+  ADMIN
+}
+
+enum StoreType {
+  PHYSICAL_KIOSK
+  HOSTEL_ROOM
+  ONLINE_ONLY
+  MOBILE_VENDOR
+}
+
+enum OrderStatus {
+  PLACED
+  PREPARING
+  READY_FOR_PICKUP
+  ASSIGNED_TO_RIDER
+  PICKED_UP
+  DELIVERED_BY_RIDER
+  CONFIRMED_BY_BUYER
+  CANCELLED
+}
+
+enum PaymentMethod {
+  NOMBA
+  PAYSTACK
+  PAY_ON_DELIVERY
+}
+
+enum PaymentStatus {
+  PENDING
+  HELD_IN_ESCROW
+  RELEASED
+  REFUNDED
+  FAILED
+}
+
+// ─────────────── USER ───────────────
+
+model User {
+  id          String   @id @default(cuid())
+  firebaseUid String   @unique
+  email       String   @unique
+  fullName    String
+  phone       String?
+  role        Role     @default(BUYER)
+
+  hall        String?
+  room        String?
+  matric      String?
+  bio         String?
+  avatarUrl   String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  vendor      Vendor?
+  rider       Rider?
+  orders      Order[]  @relation("BuyerOrders")
+  reviews     Review[]
+
+  @@map("users")
+}
+
+// ─────────────── VENDOR ───────────────
+
+model Vendor {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  storeName    String
+  description  String?
+  hall         String
+  storeType    StoreType @default(PHYSICAL_KIOSK)
+  categories   String[]
+  logoUrl      String?
+  bannerUrl    String?
+
+  verified     Boolean   @default(false)
+  onboarded    Boolean   @default(false)
+  deliveryFee  Int       @default(200)
+
+  rating       Float     @default(0)
+  totalReviews Int       @default(0)
+  totalSales   Int       @default(0)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  products     Product[]
+  orders       Order[]
+  reviews      Review[]
+
+  @@map("vendors")
+}
+
+// ─────────────── RIDER ───────────────
+// Fixed team (3-10), manually onboarded by admin — no public signup
+
+model Rider {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  vehicleType     String?
+  isActive        Boolean  @default(true)
+  totalDeliveries Int      @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  claimedOrders   Order[]  @relation("RiderOrders")
+
+  @@map("riders")
+}
+
+// ─────────────── PRODUCT ───────────────
+
+model Product {
+  id             String   @id @default(cuid())
+  vendorId       String
+  vendor         Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  name           String
+  description    String?
+  category       String
+  unit           String?
+  sku            String?
+  price          Int
+  comparePrice   Int?
+  stock          Int      @default(0)
+  images         String[]
+  availableHalls String[]
+  flashDeal      Boolean  @default(false)
+  isActive       Boolean  @default(true)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  orderItems     OrderItem[]
+
+  @@map("products")
+}
+
+// ─────────────── ORDER ───────────────
+
+model Order {
+  id              String        @id @default(cuid())
+  orderNumber     String        @unique
+
+  buyerId         String
+  buyer           User          @relation("BuyerOrders", fields: [buyerId], references: [id])
+
+  vendorId        String
+  vendor          Vendor        @relation(fields: [vendorId], references: [id])
+
+  riderId         String?
+  rider           Rider?        @relation("RiderOrders", fields: [riderId], references: [id])
+
+  status          OrderStatus   @default(PLACED)
+
+  deliveryHall    String
+  deliveryRoom    String?
+  recipientName   String
+  recipientPhone  String
+
+  subtotal        Int
+  deliveryFee     Int           @default(200)
+  total           Int
+
+  paymentMethod   PaymentMethod
+  paymentStatus   PaymentStatus @default(PENDING)
+  paystackRef     String?
+
+  riderConfirmedAt DateTime?
+  buyerConfirmedAt DateTime?
+  escrowReleasedAt DateTime?
+
+  claimedAt        DateTime?
+  claimExpiresAt   DateTime?
+  pickedUpAt       DateTime?
+  readyForPickupAt DateTime?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  items           OrderItem[]
+  review          Review?
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  name      String
+  price     Int
+  quantity  Int
+
+  @@map("order_items")
+}
+
+// ─────────────── REVIEW ───────────────
+
+model Review {
+  id        String   @id @default(cuid())
+  orderId   String   @unique
+  order     Order    @relation(fields: [orderId], references: [id])
+
+  buyerId   String
+  buyer     User     @relation(fields: [buyerId], references: [id])
+
+  vendorId  String
+  vendor    Vendor   @relation(fields: [vendorId], references: [id])
+
+  rating    Int
+  comment   String?
+
+  createdAt DateTime @default(now())
+
+  @@map("reviews")
+}
