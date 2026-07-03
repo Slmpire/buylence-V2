@@ -445,10 +445,9 @@ After running the seed script, the following accounts are available for testing.
 
 Built for the **DevCareer x Nomba Hackathon 2026**
 
-- Team: Team TECA
-- Builder: Pelumi Ogunleye
+- Team: Team Buylence
+- Builder: The team 
 - University: Obafemi Awolowo University (OAU), Ile-Ife
-- Sub-account: Nomba Hackathon 2026/team Teca
 
 ---
 
