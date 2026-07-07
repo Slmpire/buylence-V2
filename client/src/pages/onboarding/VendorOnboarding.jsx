@@ -797,15 +797,22 @@ export default function VendorOnboarding() {
       fullName: personal.fullName,
       phone: personal.phone,
     })
+    // Add this mapping before the api.post call
+const storeTypeMap = {
+  'Physical Kiosk': 'PHYSICAL_KIOSK',
+  'Hostel Room': 'HOSTEL_ROOM',
+  'Online Only': 'ONLINE_ONLY',
+  'Mobile Vendor': 'MOBILE_VENDOR',
+}
 
-    // Onboard vendor
-    await api.post('/vendors/onboard', {
-      storeName: business.storeName,
-      hall: business.hall,
-      storeType: business.storeType,
-      categories: business.categories,
-      description: business.description || '',
-    })
+// Thenthe onboard call:
+await api.post('/vendors/onboard', {
+  storeName: business.storeName,
+  hall: business.hall,
+  storeType: storeTypeMap[business.storeType] || 'PHYSICAL_KIOSK',
+  categories: business.categories,
+  description: business.description || '',
+})
 
     // Re-fetch user from backend to get updated role + vendor info
     const res = await api.get('/auth/me')
