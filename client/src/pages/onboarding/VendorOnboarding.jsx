@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { User, Building2, Shield, ArrowRight, ArrowLeft, Upload, Rocket } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
+import api from '../../lib/axios'
 
 const HALLS = ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'Mozambique Hall', 'Angola Hall', 'ETF Hall']
 const STORE_TYPES = ['Physical Kiosk', 'Hostel Room', 'Online Only', 'Mobile Vendor']
