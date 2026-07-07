@@ -17,9 +17,20 @@ app.use((req, res, next) => {
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
   next()
 })
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
-  // origin: process.env.CLIENT_URL || 'https://buylence-frontend.vercel.app/',
+  origin: (origin, callback) => {
+    const allowed = [
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'https://buylence-frontend.vercel.app',
+    ]
+    if (!origin || allowed.includes(origin)) {
+      callback(null, true)
+    } else {
+      callback(new Error('Not allowed by CORS'))
+    }
+  },
   credentials: true,
 }))
 app.use(express.json())
