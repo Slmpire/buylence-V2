@@ -5,6 +5,17 @@ const asyncHandler = require('express-async-handler')
 const prisma = require('../utils/prisma')
 const { createCheckoutOrder, fetchCheckoutOrder } = require('../services/nomba.service')
 
+
+// In payment.routes.js, after saving the Nomba reference:
+await prisma.order.update({
+  where: { id: order.id },
+  data: {
+    paystackRef: result.orderReference,
+    paymentStatus: 'HELD_IN_ESCROW', // optimistic — webhook will confirm
+  },
+})
+
+
 // POST /api/payments/initialize
 // Buyer — create a Nomba checkout order for an existing order
 router.post('/initialize', authenticate, asyncHandler(async (req, res) => {
