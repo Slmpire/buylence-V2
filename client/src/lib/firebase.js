@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth, GoogleAuthProvider } from 'firebase/auth'
+import { getAuth, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth'
 
 
 const firebaseConfig = {
@@ -15,4 +15,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const googleProvider = new GoogleAuthProvider()
+
+// Resolves once Firebase has restored (or confirmed there's no) session on page load
+let authReadyResolve
+export const authReady = new Promise((resolve) => {
+  authReadyResolve = resolve
+})
+onAuthStateChanged(auth, () => {
+  authReadyResolve()
+})
+
 export default app

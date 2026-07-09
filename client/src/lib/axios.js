@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { auth } from './firebase'
+import { auth, authReady } from './firebase'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
@@ -10,6 +10,7 @@ const api = axios.create({
 
 // Attach Firebase ID token to every request automatically
 api.interceptors.request.use(async (config) => {
+  await authReady // wait for Firebase to finish restoring the session before checking currentUser
   const user = auth.currentUser
   if (user) {
     const token = await user.getIdToken()
