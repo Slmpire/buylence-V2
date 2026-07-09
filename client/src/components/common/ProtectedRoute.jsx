@@ -10,7 +10,7 @@ export function VendorRoute({ children }) {
     return <Navigate to="/login" replace />
   }
 
-  if (user?.role !== 'vendor') {
+  if (user?.role !== 'VENDOR') {
     return <Navigate to="/" replace />
   }
 
