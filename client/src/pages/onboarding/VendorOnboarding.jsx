@@ -750,9 +750,9 @@ export default function VendorOnboarding() {
   })
 
   useEffect(() => {
-    if (isLoggedIn && user?.role === 'vendor' && user?.onboarded) {
-      navigate('/vendor/dashboard', { replace: true })
-    }
+    if (isLoggedIn && user?.role === 'VENDOR' && user?.vendor?.onboarded) {
+  navigate('/vendor/dashboard', { replace: true })
+}
   }, [isLoggedIn, user, navigate])
 
   function updatePersonal(k, v) { setPersonal(p => ({ ...p, [k]: v })) }
