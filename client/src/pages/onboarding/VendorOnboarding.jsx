@@ -815,13 +815,12 @@ await api.post('/vendors/onboard', {
 })
 
     // Re-fetch user from backend to get updated role + vendor info
-    const res = await api.get('/auth/me')
-    useAuthStore.getState().login({
-      ...res.data.user,
-      onboarded: true,
-    })
-
-    setSubmitted(true)
+   const res = await api.get('/auth/me')
+useAuthStore.setState({
+  user: res.data.user,
+  isLoggedIn: true,
+})
+setSubmitted(true)
   } catch (err) {
     console.error(err)
     setError(err.response?.data?.error || 'Failed to launch store. Please try again.')
