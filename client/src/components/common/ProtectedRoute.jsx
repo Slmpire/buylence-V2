@@ -5,19 +5,9 @@ import useAuthStore from '../../store/authStore'
 // Vendor only — must be logged in as vendor and onboarded    
 export function VendorRoute({ children }) {
   const { isLoggedIn, user } = useAuthStore()
-
-  if (!isLoggedIn) {
-    return <Navigate to="/login" replace />
-  }
-
-  if (user?.role !== 'VENDOR') {
-    return <Navigate to="/" replace />
-  }
-
-  if (!user?.onboarded) {
-    return <Navigate to="/vendor-onboarding" replace />
-  }
-
+  if (!isLoggedIn) return <Navigate to="/login" replace />
+  if (user?.role !== 'VENDOR') return <Navigate to="/" replace />
+  if (!user?.vendor?.onboarded) return <Navigate to="/vendor-onboarding" replace />
   return children
 }
 
