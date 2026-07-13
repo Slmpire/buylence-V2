@@ -34,7 +34,7 @@ import RiderHistory from './pages/rider/RiderHistory'
 import RiderEarnings from './pages/rider/RiderEarnings'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import { VendorRoute, AuthRoute, RiderRoute, AdminRoute } from './components/common/ProtectedRoute'
-
+import EditProduct from './pages/vendor-manage/EditProduct'
 
 
 export default function App() {
@@ -84,6 +84,7 @@ export default function App() {
 <Route path="/vendor/dashboard/plus" element={<VendorRoute><VendorPlusDashboard /></VendorRoute>} />
 <Route path="/vendor/products" element={<VendorRoute><MyProducts /></VendorRoute>} />
 <Route path="/vendor/products/new" element={<VendorRoute><AddProduct /></VendorRoute>} />
+<Route path="/vendor/products/edit/:id" element={<VendorRoute><EditProduct /></VendorRoute>} />
 <Route path="/vendor/earnings" element={<VendorRoute><Earnings /></VendorRoute>} />
 <Route path="/vendor/delivery" element={<VendorRoute><HallDelivery /></VendorRoute>} />
 <Route path="/vendor/settings" element={<VendorRoute><Settings /></VendorRoute>} />
