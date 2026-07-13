@@ -51,7 +51,6 @@ const FEATURES = [
 function ProductCard({ product }) {
   const addItem = useCartStore(s => s.addItem)
   const isMobile = useIsMobile()
-  const { user } = useAuthStore()
 
   return (
     <div style={{
@@ -131,6 +130,7 @@ useEffect(() => {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const isTablet = useIsTablet()
+  const { user } = useAuthStore()
 
   const cols = isMobile ? 2 : isTablet ? 3 : 4
   const browseCols = isMobile ? 3 : 5
