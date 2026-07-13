@@ -200,7 +200,7 @@ export default function Navbar() {
                         { label: 'My Dashboard', to: '/dashboard' },
                         { label: 'My Orders', to: '/orders' },
                         { label: 'Account Settings', to: '/user-settings' },
-                        ...(user?.role === 'vendor' ? [
+                        ...(user?.role === 'VENDOR' ? [
                           { label: 'Vendor Dashboard', to: '/vendor/dashboard' },
                           { label: 'My Products', to: '/vendor/products' },
                         ] : [
