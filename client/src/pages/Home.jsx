@@ -5,6 +5,7 @@ import Navbar from '../components/common/Navbar'
 import Footer from '../components/common/Footer'
 import useCartStore from '../store/cartStore'
 import { useIsMobile, useIsTablet } from '../hooks/useWindowSize'
+import useAuthStore from '../store/authStore'
 
 
 const HERO_IMAGES = [
@@ -50,6 +51,7 @@ const FEATURES = [
 function ProductCard({ product }) {
   const addItem = useCartStore(s => s.addItem)
   const isMobile = useIsMobile()
+  const { user } = useAuthStore()
 
   return (
     <div style={{
@@ -523,16 +525,21 @@ useEffect(() => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
               {/* Become a seller */}
+              {user?.role !== 'vendor' && (
               <div
-                onClick={() => navigate('/vendor-onboarding')}
-                style={{
-                  backgroundColor: 'var(--amber)',
-                  borderRadius: 16, padding: isMobile ? '20px' : '24px',
-                  display: 'flex', justifyContent: 'space-between',
-                  alignItems: 'center', flex: 1, cursor: 'pointer',
-                  minHeight: isMobile ? 100 : 120,
-                }}
-              >
+    onClick={() => navigate('/vendor-onboarding')}
+    style={{
+      backgroundColor: 'var(--amber)',
+      borderRadius: 16,
+      padding: isMobile ? '20px' : '24px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      flex: 1,
+      cursor: 'pointer',
+      minHeight: isMobile ? 100 : 120,
+    }}
+  >
                 <div>
                   <h3 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 900, color: 'white', lineHeight: 1.2, marginBottom: 6 }}>
                     BECOME A SELLER
@@ -543,7 +550,7 @@ useEffect(() => {
                 </div>
                 <div style={{ fontSize: 36, opacity: 0.3 }}>🏪</div>
               </div>
-
+)}
               {/* Feature cards */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 {FEATURES.map(f => (
