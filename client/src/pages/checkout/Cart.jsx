@@ -115,7 +115,7 @@ export default function Cart() {
               }}>
                 {/* Image */}
                 <img
-                  src={item.img} alt={item.name}
+                  src={item.images?.[0] || item.img || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80'}
                   style={{
                     width: isMobile ? 64 : 80,
                     height: isMobile ? 64 : 80,
