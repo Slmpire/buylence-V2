@@ -51,7 +51,7 @@ export default function ProductCard({ product }) {
       {/* Image */}
       <div
         style={{ position: 'relative' }}
-        onClick={() => navigate('/marketplace')}
+        onClick={() => navigate(`/vendor/${product.vendorId}`)}
       >
         <img
           src={image}
