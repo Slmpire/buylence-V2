@@ -185,7 +185,8 @@ async function main() {
       price: 3200,
       comparePrice: 3800,
       stock: 50,
-      images: ['https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&q=80'],
+      // Ofada Rice (1kg)
+      images: ['https://images.unsplash.com/photo-1536304993881-ff86e0c9b516?w=400&q=80'],
       availableHalls: ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'ETF Hall'],
       flashDeal: false,
     },
@@ -198,7 +199,8 @@ async function main() {
       price: 3500,
       comparePrice: null,
       stock: 35,
-      images: ['https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&q=80'],
+      // Brown Rice (1kg)
+      images: ['https://images.unsplash.com/photo-1626016761073-1e1b3f07af15?w=400&q=80'],
       availableHalls: ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'ETF Hall', 'Angola Hall'],
       flashDeal: false,
     },
@@ -211,7 +213,8 @@ async function main() {
       price: 4200,
       comparePrice: 5000,
       stock: 20,
-      images: ['https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400&q=80'],
+      // Yam Tubers (3kg)
+      images: ['https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=400&q=80'],
       availableHalls: ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall'],
       flashDeal: true,
     },
@@ -224,7 +227,8 @@ async function main() {
       price: 5500,
       comparePrice: null,
       stock: 15,
-      images: ['https://images.unsplash.com/photo-1534482421-64566f976cfa?w=400&q=80'],
+      // Fresh Tilapia Fish (1kg)
+      images: ['https://images.unsplash.com/photo-1615141982883-c7ad0e69fd62?w=400&q=80'],
       availableHalls: ['Awo Hall', 'Moremi Hall'],
       flashDeal: false,
     },
@@ -237,7 +241,7 @@ async function main() {
       price: 6500,
       comparePrice: 7200,
       stock: 25,
-      images: ['https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=400&q=80'],
+      images: ['https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=400&q=80'],
       availableHalls: ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'ETF Hall'],
       flashDeal: false,
     },
@@ -250,6 +254,7 @@ async function main() {
       price: 2400,
       comparePrice: null,
       stock: 40,
+      // Groundnut Oil (75cl)
       images: ['https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&q=80'],
       availableHalls: ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'ETF Hall', 'Angola Hall'],
       flashDeal: false,
@@ -263,7 +268,8 @@ async function main() {
       price: 2200,
       comparePrice: null,
       stock: 30,
-      images: ['https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400&q=80'],
+      // Sweet Potato (2kg)
+      images: ['https://images.unsplash.com/photo-1596097635121-14b38bfd248c?w=400&q=80'],
       availableHalls: ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall'],
       flashDeal: false,
     },
@@ -276,7 +282,8 @@ async function main() {
       price: 5500,
       comparePrice: 6000,
       stock: 60,
-      images: ['https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&q=80'],
+      // Garri (5kg)
+      images: ['https://images.unsplash.com/photo-1612257417666-f4b8c14a7987?w=400&q=80'],
       availableHalls: ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'ETF Hall', 'Angola Hall', 'Mozambique Hall'],
       flashDeal: true,
     },
@@ -303,6 +310,7 @@ async function main() {
       price: 1200,
       comparePrice: null,
       stock: 30,
+      // Butter Croissant
       images: ['https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&q=80'],
       availableHalls: ['Moremi Hall', 'Fajuyi Hall', 'Awo Hall'],
       flashDeal: false,
@@ -316,7 +324,8 @@ async function main() {
       price: 1500,
       comparePrice: null,
       stock: 20,
-      images: ['https://images.unsplash.com/photo-1541167760496-1628856ab772?w=400&q=80'],
+      // Vanilla Cold Brew (500ml)
+      images: ['https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400&q=80'],
       availableHalls: ['Moremi Hall', 'Fajuyi Hall', 'Awo Hall', 'ETF Hall'],
       flashDeal: false,
     },
@@ -329,7 +338,8 @@ async function main() {
       price: 800,
       comparePrice: null,
       stock: 50,
-      images: ['https://images.unsplash.com/photo-1571212515416-fef01fc43637?w=400&q=80'],
+      // Chin Chin (200g)
+      images: ['https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=400&q=80'],
       availableHalls: ['Moremi Hall', 'Fajuyi Hall', 'Awo Hall', 'ETF Hall', 'Angola Hall'],
       flashDeal: false,
     },
@@ -342,7 +352,8 @@ async function main() {
       price: 600,
       comparePrice: null,
       stock: 40,
-      images: ['https://images.unsplash.com/photo-1551024601-bec78aea704b?w=400&q=80'],
+      // Puff Puff (10 pieces)
+      images: ['https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&q=80'],
       availableHalls: ['Moremi Hall', 'Fajuyi Hall'],
       flashDeal: true,
     },
@@ -355,7 +366,8 @@ async function main() {
       price: 1000,
       comparePrice: 1200,
       stock: 25,
-      images: ['https://images.unsplash.com/photo-1546173159-315724a31696?w=400&q=80'],
+      // Zobo Drink (1L)
+      images: ['https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=400&q=80'],
       availableHalls: ['Moremi Hall', 'Fajuyi Hall', 'Awo Hall', 'ETF Hall'],
       flashDeal: false,
     },
