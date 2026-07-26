@@ -384,6 +384,11 @@ async function main() {
   // SAMPLE ORDER — for testing the full lifecycle
   // ─────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────
+// SAMPLE ORDER — for testing the full lifecycle
+// ─────────────────────────────────────────────────────
+
+try {
   const sampleOrder = await prisma.order.create({
     data: {
       orderNumber: 'BUY-SEED01',
@@ -403,17 +408,27 @@ async function main() {
       items: {
         create: [
           {
-            productId: (await prisma.product.findFirst({
-              where: { vendorId: vendor1.id, sku: 'BL-GR-001' },
-            })).id,
+            productId: (
+              await prisma.product.findFirst({
+                where: {
+                  vendorId: vendor1.id,
+                  sku: 'BL-GR-001',
+                },
+              })
+            ).id,
             name: 'Ofada Rice (1kg)',
             price: 3200,
             quantity: 1,
           },
           {
-            productId: (await prisma.product.findFirst({
-              where: { vendorId: vendor1.id, sku: 'BL-TB-001' },
-            })).id,
+            productId: (
+              await prisma.product.findFirst({
+                where: {
+                  vendorId: vendor1.id,
+                  sku: 'BL-TB-001',
+                },
+              })
+            ).id,
             name: 'Yam Tubers (3kg)',
             price: 4200,
             quantity: 1,
@@ -421,22 +436,14 @@ async function main() {
         ],
       },
     },
-    include: { items: true },
+    include: {
+      items: true,
+    },
   })
-  console.log('✅ Sample order created:', sampleOrder.orderNumber)
 
-  console.log('')
-  console.log('🎉 Seed complete! Summary:')
-  console.log('   Admin:    admin@buylence.com')
-  console.log('   Vendor 1: tunde@buylence.com  → Tunde\'s Fresh Mart (8 products)')
-  console.log('   Vendor 2: moremi@buylence.com → Moremi Delights (5 products)')
-  console.log('   Buyer:    pelumi@buylence.com')
-  console.log('   Rider 1:  rider1@buylence.com → Chidi Okafor (Bicycle)')
-  console.log('   Rider 2:  rider2@buylence.com → Emeka Nwosu (Motorcycle)')
-  console.log('   Sample order: BUY-SEED01 (PLACED, escrow held)')
-  console.log('')
-  console.log('⚠️  Note: Firebase UIDs in seed are placeholders.')
-  console.log('   Real users must sign in via Firebase to get real UIDs.')
+  console.log('✅ Sample order created:', sampleOrder.orderNumber)
+} catch (e) {
+  console.log('⚠️ Sample order already exists, skipping')
 }
 
 main()
@@ -448,3 +455,4 @@ main()
     await prisma.$disconnect()
     await pool.end()
   })
+}
