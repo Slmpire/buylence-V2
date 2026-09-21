@@ -81,8 +81,7 @@ function ProductCard({ product }) {
     >
       <div style={{ position: 'relative' }}>
         <img
-          src={product.img}
-          alt={product.name}
+          src={product.img} alt={product.name}
           style={{ width: '100%', height: isMobile ? 140 : 190, objectFit: 'cover', display: 'block' }}
           onError={e => { e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80' }}
         />
@@ -105,7 +104,8 @@ function ProductCard({ product }) {
         </p>
         <p style={{
           fontSize: isMobile ? 12 : 14, fontWeight: 800,
-          letterSpacing: '-0.2px', marginBottom: isMobile ? 8 : 10, lineHeight: 1.3,
+          letterSpacing: '-0.2px', marginBottom: isMobile ? 8 : 10,
+          lineHeight: 1.3,
           display: '-webkit-box', WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>
@@ -162,7 +162,7 @@ export default function Home() {
     <div style={{ fontFamily: 'Inter, sans-serif', backgroundColor: 'var(--cream)' }}>
       <Navbar />
 
-      {/* HERO */}
+      {/* ── HERO ── */}
       <section style={{
         position: 'relative', overflow: 'hidden',
         minHeight: isMobile ? 460 : 560, backgroundColor: '#E8E2DA',
@@ -191,7 +191,7 @@ export default function Home() {
           <div style={{
             maxWidth: isMobile ? '100%' : 480,
             padding: isMobile ? '24px 20px 28px' : '50px 56px 50px 44px',
-            backgroundColor: isMobile ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.88)',
+            backgroundColor: 'rgba(255,255,255,0.88)',
             borderRadius: isMobile ? 16 : 20,
             backdropFilter: 'blur(8px)',
             boxShadow: '0 4px 32px rgba(0,0,0,0.06)',
@@ -246,7 +246,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CATEGORY TABS */}
+      {/* ── CATEGORY TABS ── */}
       <section style={{ padding: '20px 0 0', backgroundColor: 'var(--cream)' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px' }}>
           <div style={{
@@ -276,7 +276,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* BROWSE CATEGORIES */}
+      {/* ── BROWSE CATEGORIES ── */}
       <section style={{ padding: isMobile ? '24px 0' : '48px 0' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px' }}>
           <div style={{
@@ -332,7 +332,10 @@ export default function Home() {
               {BROWSE_CATEGORIES.slice(3).map(cat => (
                 <Link key={cat.label} to={cat.to} style={{ textDecoration: 'none', color: 'inherit' }}>
                   <div>
-                    <div style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', aspectRatio: '1', marginBottom: 6 }}>
+                    <div style={{
+                      borderRadius: 'var(--radius-lg)', overflow: 'hidden',
+                      aspectRatio: '1', marginBottom: 6,
+                    }}>
                       <img src={cat.img} alt={cat.label}
                         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                     </div>
@@ -347,7 +350,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* BROWSE VENDORS */}
+      {/* ── BROWSE VENDORS ── */}
       <section style={{ padding: '0 0 28px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px' }}>
           <div
@@ -377,14 +380,17 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--amber)', fontSize: 12, fontWeight: 700 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              color: 'var(--amber)', fontSize: 12, fontWeight: 700,
+            }}>
               {!isMobile && 'View all'} <ArrowRight size={14} />
             </div>
           </div>
         </div>
       </section>
 
-      {/* STUDENT FAVORITES */}
+      {/* ── STUDENT FAVORITES ── */}
       <section style={{ padding: '0 0 40px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px' }}>
           <div style={{
@@ -422,7 +428,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* PROMO GRID */}
+      {/* ── PROMO GRID ── */}
       <section style={{ padding: '0 0 48px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px' }}>
           <div style={{
@@ -430,6 +436,7 @@ export default function Home() {
             gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
             gap: 16,
           }}>
+
             {/* Flash deal */}
             <div style={{
               backgroundColor: '#6B6B65', borderRadius: 16,
@@ -497,7 +504,10 @@ export default function Home() {
                     }}>
                       BECOME A SELLER
                     </h3>
-                    <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: isMobile ? 11 : 12, lineHeight: 1.4, margin: 0 }}>
+                    <p style={{
+                      color: 'rgba(255,255,255,0.85)',
+                      fontSize: isMobile ? 11 : 12, lineHeight: 1.4, margin: 0,
+                    }}>
                       Turn your hostel room into a business.
                     </p>
                   </div>
@@ -524,7 +534,10 @@ export default function Home() {
                     }}>
                       YOUR STORE
                     </h3>
-                    <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: isMobile ? 11 : 12, lineHeight: 1.4, margin: 0 }}>
+                    <p style={{
+                      color: 'rgba(255,255,255,0.6)',
+                      fontSize: isMobile ? 11 : 12, lineHeight: 1.4, margin: 0,
+                    }}>
                       Manage products, orders and earnings.
                     </p>
                   </div>
@@ -554,8 +567,8 @@ export default function Home() {
                       {f.title.toUpperCase()}
                     </h4>
                     <p style={{
-                      fontSize: isMobile ? 10 : 11, color: 'var(--gray-muted)',
-                      lineHeight: 1.5, margin: 0,
+                      fontSize: isMobile ? 10 : 11,
+                      color: 'var(--gray-muted)', lineHeight: 1.5, margin: 0,
                     }}>
                       {f.desc}
                     </p>
