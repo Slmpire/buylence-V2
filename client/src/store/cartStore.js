@@ -4,11 +4,11 @@ import { persist } from 'zustand/middleware'
 const useCartStore = create(persist(
   (set, get) => ({
     items: [],
-    addItem: (product) => {
+    addItem: (product, count = 1) => {
       const existing = get().items.find(i => i.id === product.id)
       if (existing) {
         set({ items: get().items.map(i =>
-          i.id === product.id ? { ...i, qty: i.qty + 1 } : i
+          i.id === product.id ? { ...i, qty: i.qty + count } : i
         )})
       } else {
         // Only store what we need — avoid non-serializable nested objects
@@ -21,7 +21,7 @@ const useCartStore = create(persist(
           unit: product.unit,
           vendorId: product.vendorId,
           vendor: product.vendor,
-          qty: 1,
+          qty: count,
         }
         set({ items: [...get().items, item] })
       }

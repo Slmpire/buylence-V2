@@ -4,97 +4,11 @@ import { Search as SearchIcon, X, ShoppingBag, User } from 'lucide-react'
 import useCartStore from '../../store/cartStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import api from '../../lib/axios'
+import ProductCard from '../../components/product/ProductCard'
 
 const CATEGORIES = ['Grains & Cereals', 'Proteins & Meat', 'Tubers & Roots', 'Snacks & Beverages', 'Oils & Spices', 'Bread & Bakery', 'Beverages & Drinks']
 const HALLS = ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'ETF Hall', 'Angola Hall', 'Mozambique Hall']
 const SORT_OPTIONS = ['Most Relevant', 'Price: Low to High', 'Price: High to Low']
-
-function ProductCard({ product }) {
-  const navigate = useNavigate()
-  const addItem = useCartStore(s => s.addItem)
-  const isMobile = useIsMobile()
-
-  return (
-    <div
-      style={{
-        backgroundColor: 'white',
-        border: '1px solid rgba(0,0,0,0.07)',
-        borderRadius: 12, overflow: 'hidden',
-        cursor: 'pointer',
-        transition: 'box-shadow 0.15s',
-      }}
-      onClick={() => navigate(`/marketplace`)}
-      onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.08)'}
-      onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
-    >
-      <div style={{ position: 'relative', height: isMobile ? 160 : 200, overflow: 'hidden' }}>
-        <img
-          src={product.images?.[0] || 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&q=80'}
-          alt={product.name}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-        />
-        {product.flashDeal && (
-          <div style={{
-            position: 'absolute', top: 8, left: 8,
-            backgroundColor: '#BE864B', color: 'white',
-            fontSize: 8, fontWeight: 800, letterSpacing: '0.08em',
-            padding: '3px 7px', borderRadius: 4,
-          }}>
-            FLASH DEAL
-          </div>
-        )}
-        {product.comparePrice && (
-          <div style={{
-            position: 'absolute', top: 8, right: 8,
-            backgroundColor: 'rgba(0,0,0,0.75)', color: 'white',
-            fontSize: 8, fontWeight: 800, letterSpacing: '0.06em',
-            padding: '3px 7px', borderRadius: 4,
-          }}>
-            {Math.round((1 - product.price / product.comparePrice) * 100)}% OFF
-          </div>
-        )}
-      </div>
-      <div style={{ padding: isMobile ? '10px 12px 12px' : '14px' }}>
-        <p style={{ fontSize: 10, color: '#9C9488', margin: '0 0 2px', letterSpacing: '0.04em' }}>
-          {product.vendor?.storeName?.toUpperCase() || 'CAMPUS VENDOR'}
-        </p>
-        <p style={{
-          fontSize: isMobile ? 12 : 13, fontWeight: 800,
-          margin: '0 0 4px', color: '#1D1D1D', lineHeight: 1.3,
-        }}>
-          {product.name}
-        </p>
-        <p style={{ fontSize: 10, color: '#9C9488', margin: '0 0 8px' }}>
-          {product.unit}
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <span style={{ fontSize: isMobile ? 14 : 15, fontWeight: 900, color: '#BE864B' }}>
-              ₦{product.price.toLocaleString()}
-            </span>
-            {product.comparePrice && (
-              <span style={{ fontSize: 11, color: '#9C9488', textDecoration: 'line-through', marginLeft: 6 }}>
-                ₦{product.comparePrice.toLocaleString()}
-              </span>
-            )}
-          </div>
-          <button
-            onClick={e => { e.stopPropagation(); addItem(product) }}
-            style={{
-              padding: '5px 10px',
-              backgroundColor: '#1D1D1D', color: 'white',
-              border: 'none', borderRadius: 6,
-              fontSize: 10, fontWeight: 700,
-              cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-            }}
-          >
-            ADD
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams()

@@ -6,6 +6,7 @@ import Footer from '../components/common/Footer'
 import useCartStore from '../store/cartStore'
 import { useIsMobile, useIsTablet } from '../hooks/useWindowSize'
 import useAuthStore from '../store/authStore'
+import ProductCard from '../components/product/ProductCard'
 
 const HERO_IMAGES = [
   '/vegetables.jpg',
@@ -45,94 +46,6 @@ const FEATURES = [
   { icon: <Truck size={20} />, title: 'Gate Delivery', desc: 'Standard ₦200 fee to all residence hall gates.' },
   { icon: <ShieldCheck size={20} />, title: 'Escrow Security', desc: 'Funds released only upon delivery confirmation.' },
 ]
-
-function ProductCard({ product }) {
-  const addItem = useCartStore(s => s.addItem)
-  const navigate = useNavigate()
-  const isMobile = useIsMobile()
-  const [added, setAdded] = useState(false)
-
-  function handleAdd(e) {
-    e.stopPropagation()
-    addItem(product)
-    setAdded(true)
-    setTimeout(() => setAdded(false), 1000)
-  }
-
-  return (
-    <div
-      onClick={() => navigate('/marketplace')}
-      style={{
-        backgroundColor: 'white',
-        borderRadius: 'var(--radius-lg)',
-        overflow: 'hidden',
-        border: '1px solid transparent',
-        cursor: 'pointer',
-        transition: 'transform 0.15s, box-shadow 0.15s',
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.transform = 'translateY(-3px)'
-        e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.08)'
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.transform = 'translateY(0)'
-        e.currentTarget.style.boxShadow = 'none'
-      }}
-    >
-      <div style={{ position: 'relative' }}>
-        <img
-          src={product.img} alt={product.name}
-          style={{ width: '100%', height: isMobile ? 140 : 190, objectFit: 'cover', display: 'block' }}
-          onError={e => { e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80' }}
-        />
-        <span style={{
-          position: 'absolute', top: 8, left: 8,
-          backgroundColor: 'rgba(0,0,0,0.72)', color: 'white',
-          fontSize: isMobile ? 8 : 9, fontWeight: 700, letterSpacing: '0.06em',
-          padding: '3px 7px', borderRadius: 'var(--radius-pill)',
-        }}>
-          {product.sellers} SELLERS
-        </span>
-      </div>
-      <div style={{ padding: isMobile ? '10px 12px 12px' : '14px 16px 18px' }}>
-        <p style={{
-          fontSize: isMobile ? 9 : 10, color: 'var(--gray-muted)',
-          letterSpacing: '0.06em', marginBottom: 3, fontWeight: 600,
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>
-          {product.tag}
-        </p>
-        <p style={{
-          fontSize: isMobile ? 12 : 14, fontWeight: 800,
-          letterSpacing: '-0.2px', marginBottom: isMobile ? 8 : 10,
-          lineHeight: 1.3,
-          display: '-webkit-box', WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical', overflow: 'hidden',
-        }}>
-          {product.name.toUpperCase()}
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: isMobile ? 14 : 18, fontWeight: 900, color: 'var(--amber)' }}>
-            ₦{product.price.toLocaleString()}
-          </span>
-          <button
-            onClick={handleAdd}
-            style={{
-              width: isMobile ? 28 : 32, height: isMobile ? 28 : 32,
-              borderRadius: '50%',
-              backgroundColor: added ? 'var(--amber)' : 'var(--charcoal)',
-              color: 'white', border: 'none', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: isMobile ? 16 : 20, transition: 'background 0.2s', flexShrink: 0,
-            }}
-          >
-            {added ? '✓' : '+'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export default function Home() {
   const navigate = useNavigate()
