@@ -32,6 +32,12 @@ export default function ProductCard({ product, onSelectProduct }) {
         ? `${Math.round((1 - product.price / product.comparePrice) * 100)}% OFF`
         : null
 
+  // Hall availability label preview
+  const availableHallsList = Array.isArray(product.availableHalls) ? product.availableHalls : []
+  const hallLabel = availableHallsList.length > 0
+    ? (availableHallsList.length === 1 ? `🏛️ ${availableHallsList[0]}` : `🏛️ ${availableHallsList.length} Halls`)
+    : '🏛️ All Halls'
+
   function handleCardClick() {
     if (onSelectProduct) {
       onSelectProduct(product)
@@ -44,7 +50,7 @@ export default function ProductCard({ product, onSelectProduct }) {
     e.stopPropagation()
     addItem(product)
     setAdded(true)
-    setTimeout(() => setAdded(false), 1000)
+    setTimeout(() => setAdded(false), 1200)
   }
 
   return (
@@ -92,9 +98,9 @@ export default function ProductCard({ product, onSelectProduct }) {
               position: 'absolute', top: 8, left: 8,
               backgroundColor: product.flashDeal ? '#BE864B' : 'rgba(0,0,0,0.72)',
               color: 'white',
-              fontSize: isMobile ? 8 : 10,
+              fontSize: isMobile ? 10 : 11,
               fontWeight: 700, letterSpacing: '0.06em',
-              padding: '3px 7px',
+              padding: '3px 8px',
               borderRadius: 20,
             }}>
               {badge}
@@ -104,7 +110,7 @@ export default function ProductCard({ product, onSelectProduct }) {
             <span style={{
               position: 'absolute', top: 8, right: 8,
               backgroundColor: '#BE864B', color: 'white',
-              fontSize: 8, fontWeight: 800, letterSpacing: '0.06em',
+              fontSize: isMobile ? 10 : 11, fontWeight: 800, letterSpacing: '0.06em',
               padding: '3px 7px', borderRadius: 4,
             }}>
               SALE
@@ -114,24 +120,38 @@ export default function ProductCard({ product, onSelectProduct }) {
 
         {/* Info */}
         <div style={{
-          padding: isMobile ? '10px 12px 14px' : '14px 16px 18px',
+          padding: isMobile ? '12px 12px 14px' : '14px 16px 18px',
           display: 'flex',
           flexDirection: 'column',
           flex: 1,
           justifyContent: 'space-between',
         }}>
           <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 4 }}>
+              <p style={{
+                fontSize: isMobile ? 10 : 11,
+                color: 'var(--gray-muted, #9C9488)',
+                letterSpacing: '0.07em',
+                fontWeight: 600,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                margin: 0,
+              }}>
+                {tag.toUpperCase()}
+              </p>
+              <span style={{
+                fontSize: isMobile ? 10 : 11,
+                color: '#BE864B',
+                fontWeight: 700,
+                backgroundColor: '#FAF4EB',
+                padding: '2px 6px',
+                borderRadius: 4,
+                whiteSpace: 'nowrap',
+              }}>
+                {hallLabel}
+              </span>
+            </div>
             <p style={{
-              fontSize: isMobile ? 9 : 10,
-              color: 'var(--gray-muted, #9C9488)',
-              letterSpacing: '0.07em',
-              marginBottom: 3, fontWeight: 600,
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            }}>
-              {tag.toUpperCase()}
-            </p>
-            <p style={{
-              fontSize: isMobile ? 12 : 14,
+              fontSize: isMobile ? 13 : 14,
               fontWeight: 800, letterSpacing: '-0.2px',
               marginBottom: isMobile ? 8 : 12,
               lineHeight: 1.3,
@@ -159,7 +179,7 @@ export default function ProductCard({ product, onSelectProduct }) {
               </span>
               {product.comparePrice && (
                 <span style={{
-                  fontSize: 10, color: '#9C9488',
+                  fontSize: isMobile ? 11 : 11, color: '#9C9488',
                   textDecoration: 'line-through', marginLeft: 5,
                 }}>
                   ₦{product.comparePrice.toLocaleString()}
@@ -170,17 +190,19 @@ export default function ProductCard({ product, onSelectProduct }) {
               onClick={handleQuickAdd}
               aria-label={`Add ${product.name} to cart`}
               style={{
-                width: isMobile ? 30 : 34,
-                height: isMobile ? 30 : 34,
+                width: isMobile ? 32 : 36,
+                height: isMobile ? 32 : 36,
                 borderRadius: '50%',
                 backgroundColor: added ? '#16A34A' : 'var(--charcoal, #1D1D1D)',
                 color: 'white',
                 border: 'none', cursor: 'pointer',
                 display: 'flex', alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: added ? 14 : 18, fontWeight: 300,
-                transition: 'background 0.15s',
+                fontSize: added ? 15 : 18, fontWeight: added ? 800 : 400,
+                transform: added ? 'scale(1.18)' : 'scale(1)',
+                transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                 flexShrink: 0,
+                boxShadow: added ? '0 4px 12px rgba(22, 163, 74, 0.4)' : 'none',
               }}
               onMouseEnter={e => {
                 if (!added) e.currentTarget.style.backgroundColor = 'var(--amber, #BE864B)'

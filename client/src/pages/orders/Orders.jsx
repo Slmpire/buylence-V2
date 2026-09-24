@@ -206,17 +206,17 @@ export default function Orders() {
 
                   {/* Info */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
                       <span style={{
-                        fontSize: 9, fontWeight: 800, letterSpacing: '0.08em',
-                        padding: '3px 7px', borderRadius: 4,
+                        fontSize: 11, fontWeight: 800, letterSpacing: '0.08em',
+                        padding: '3px 8px', borderRadius: 4,
                         backgroundColor: '#E8E4DE', color: '#7F766B',
                       }}>
                         {order.orderNumber}
                       </span>
                       <span style={{
-                        fontSize: 9, fontWeight: 800, letterSpacing: '0.08em',
-                        padding: '3px 7px', borderRadius: 4,
+                        fontSize: 11, fontWeight: 800, letterSpacing: '0.08em',
+                        padding: '3px 8px', borderRadius: 4,
                         backgroundColor: st.bg, color: st.color,
                       }}>
                         {st.label}
@@ -225,21 +225,21 @@ export default function Orders() {
                     <h3 style={{ fontSize: 15, fontWeight: 800, margin: '0 0 5px', color: '#1D1D1D' }}>
                       {order.vendor?.storeName || 'Buylence Order'}
                     </h3>
-                    <p style={{ fontSize: 12, color: '#7F766B', margin: '0 0 10px', lineHeight: 1.5 }}>
+                    <p style={{ fontSize: 13, color: '#7F766B', margin: '0 0 10px', lineHeight: 1.5 }}>
                       {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''} ·{' '}
                       {order.items?.map(i => i.name).slice(0, 2).join(', ')}
                       {order.items?.length > 2 ? ` +${order.items.length - 2} more` : ''}
                     </p>
-                    <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-                        <MapPin size={11} color="#9C9488" />
-                        <span style={{ fontSize: 10, color: '#9C9488', fontWeight: 600 }}>
+                        <MapPin size={12} color="#9C9488" />
+                        <span style={{ fontSize: 11, color: '#9C9488', fontWeight: 600 }}>
                           {order.deliveryHall?.toUpperCase()}
                         </span>
                       </div>
                       <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-                        <Calendar size={11} color="#9C9488" />
-                        <span style={{ fontSize: 10, color: '#9C9488' }}>{date}</span>
+                        <Calendar size={12} color="#9C9488" />
+                        <span style={{ fontSize: 11, color: '#9C9488' }}>{date}</span>
                       </div>
                     </div>
                   </div>
@@ -253,7 +253,7 @@ export default function Orders() {
                       onClick={e => { e.stopPropagation(); navigate(`/orders/${order.id}`) }}
                       style={{
                         background: 'none', border: 'none',
-                        fontSize: 10, color: '#BE864B',
+                        fontSize: 11, color: '#BE864B',
                         fontWeight: 700, cursor: 'pointer',
                         letterSpacing: '0.06em', padding: 0,
                       }}

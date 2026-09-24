@@ -234,7 +234,7 @@ export default function ProductModal({ product, isOpen, onClose }) {
                   <span style={{
                     backgroundColor: '#BE864B',
                     color: 'white',
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: 800,
                     letterSpacing: '0.08em',
                     padding: '4px 8px',
@@ -248,7 +248,7 @@ export default function ProductModal({ product, isOpen, onClose }) {
                   <span style={{
                     backgroundColor: '#1D1D1D',
                     color: 'white',
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: 800,
                     letterSpacing: '0.06em',
                     padding: '4px 8px',

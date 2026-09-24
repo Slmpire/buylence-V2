@@ -4,6 +4,7 @@ import { MapPin, Star, ShieldCheck, Search } from 'lucide-react'
 import Navbar from '../../components/common/Navbar'
 import Footer from '../../components/common/Footer'
 import ProductCard from '../../components/product/ProductCard'
+import { useIsMobile } from '../../hooks/useWindowSize'
 import api from '../../lib/axios'
 
 const SORT_OPTIONS = [
@@ -30,6 +31,7 @@ function StarRating({ rating, size = 14 }) {
 export default function VendorPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
 
   const [vendor, setVendor] = useState(null)
   const [products, setProducts] = useState([])
@@ -306,7 +308,7 @@ export default function VendorPage() {
             </p>
 
             {filteredProducts.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 18 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? 10 : 18 }}>
                 {filteredProducts.map(p => (
                   <ProductCard key={p.id} product={p} />
                 ))}

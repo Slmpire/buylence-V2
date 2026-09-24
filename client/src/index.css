@@ -109,3 +109,16 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* Small mobile devices (under 380px) font scaling rules */
+@media (max-width: 380px) {
+  :root {
+    font-size: 15px;
+  }
+  body {
+    -webkit-text-size-adjust: 100%;
+  }
+  span, p, h1, h2, h3, h4, button, input, select {
+    letter-spacing: normal;
+  }
+}

@@ -69,8 +69,8 @@ function VendorCard({ vendor }) {
           <div style={{
             position: 'absolute', top: 8, left: 8,
             backgroundColor: '#BE864B', color: 'white',
-            fontSize: 8, fontWeight: 800, letterSpacing: '0.08em',
-            padding: '2px 7px', borderRadius: 4,
+            fontSize: isMobile ? 10 : 10, fontWeight: 800, letterSpacing: '0.08em',
+            padding: '3px 8px', borderRadius: 4,
           }}>
             FEATURED
           </div>
@@ -79,11 +79,11 @@ function VendorCard({ vendor }) {
           <div style={{
             position: 'absolute', top: 8, right: 8,
             backgroundColor: 'rgba(0,0,0,0.5)',
-            borderRadius: 4, padding: '2px 6px',
-            display: 'flex', alignItems: 'center', gap: 3,
+            borderRadius: 4, padding: '3px 7px',
+            display: 'flex', alignItems: 'center', gap: 4,
           }}>
-            <ShieldCheck size={9} color="#4ADE80" />
-            <span style={{ fontSize: 8, color: 'white', fontWeight: 700 }}>VERIFIED</span>
+            <ShieldCheck size={11} color="#4ADE80" />
+            <span style={{ fontSize: isMobile ? 10 : 10, color: 'white', fontWeight: 700 }}>VERIFIED</span>
           </div>
         )}
       </div>
@@ -92,11 +92,11 @@ function VendorCard({ vendor }) {
       <div style={{ padding: isMobile ? '12px' : '16px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
           <div style={{
-            width: isMobile ? 34 : 40,
-            height: isMobile ? 34 : 40,
+            width: isMobile ? 36 : 40,
+            height: isMobile ? 36 : 40,
             borderRadius: 8, backgroundColor: avatarBg,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'white', fontSize: isMobile ? 14 : 16,
+            color: 'white', fontSize: isMobile ? 15 : 16,
             fontWeight: 900, flexShrink: 0,
             marginTop: isMobile ? -24 : -28,
             border: '2px solid white',
@@ -106,16 +106,16 @@ function VendorCard({ vendor }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
               <h3 style={{
-                fontSize: isMobile ? 13 : 14,
+                fontSize: isMobile ? 13.5 : 14,
                 fontWeight: 800, margin: 0, color: '#1D1D1D',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}>
                 {vendor.storeName}
               </h3>
-              {vendor.verified && <ShieldCheck size={12} color="#16A34A" />}
+              {vendor.verified && <ShieldCheck size={13} color="#16A34A" />}
             </div>
             <p style={{
-              fontSize: 11, color: '#7F766B', margin: 0,
+              fontSize: isMobile ? 12 : 12, color: '#7F766B', margin: 0,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {tagline}
@@ -125,8 +125,8 @@ function VendorCard({ vendor }) {
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <StarRating rating={vendor.rating || 0} size={10} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#1D1D1D' }}>
+            <StarRating rating={vendor.rating || 0} size={11} />
+            <span style={{ fontSize: isMobile ? 12 : 12, fontWeight: 700, color: '#1D1D1D' }}>
               {vendor.rating ? vendor.rating.toFixed(1) : '—'}
             </span>
             {!isMobile && (
@@ -136,8 +136,8 @@ function VendorCard({ vendor }) {
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            <MapPin size={10} color="#9C9488" />
-            <span style={{ fontSize: 10, color: '#9C9488' }}>
+            <MapPin size={11} color="#9C9488" />
+            <span style={{ fontSize: isMobile ? 11 : 11, color: '#9C9488', fontWeight: 600 }}>
               {isMobile ? vendor.hall?.split(' ')[0] : vendor.hall}
             </span>
           </div>
@@ -147,8 +147,8 @@ function VendorCard({ vendor }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: isMobile ? 8 : 10 }}>
           {categories.slice(0, isMobile ? 1 : 2).map(cat => (
             <span key={cat} style={{
-              fontSize: 9, fontWeight: 600,
-              padding: '2px 7px', borderRadius: 4,
+              fontSize: isMobile ? 10.5 : 11, fontWeight: 600,
+              padding: '3px 8px', borderRadius: 4,
               backgroundColor: '#F0EDE8', color: '#7F766B',
             }}>
               {cat}
@@ -156,8 +156,8 @@ function VendorCard({ vendor }) {
           ))}
           {categories.length > (isMobile ? 1 : 2) && (
             <span style={{
-              fontSize: 9, fontWeight: 600,
-              padding: '2px 7px', borderRadius: 4,
+              fontSize: isMobile ? 10.5 : 11, fontWeight: 600,
+              padding: '3px 8px', borderRadius: 4,
               backgroundColor: '#F0EDE8', color: '#9C9488',
             }}>
               +{categories.length - (isMobile ? 1 : 2)}
@@ -171,11 +171,11 @@ function VendorCard({ vendor }) {
           alignItems: 'center', paddingTop: 8,
           borderTop: '1px solid rgba(0,0,0,0.05)',
         }}>
-          <span style={{ fontSize: 10, color: '#9C9488' }}>
+          <span style={{ fontSize: isMobile ? 11 : 11, color: '#9C9488' }}>
             ⏱ {responseTime}
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#BE864B', fontSize: 11, fontWeight: 700 }}>
-            Visit <ArrowRight size={11} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#BE864B', fontSize: isMobile ? 12 : 12, fontWeight: 700 }}>
+            Visit <ArrowRight size={12} />
           </div>
         </div>
       </div>
