@@ -11,6 +11,7 @@ import Proteins from './pages/categories/Proteins'
 import Tubers from './pages/categories/Tubers'
 import Vegetables from './pages/categories/Vegetables'
 import Oils from './pages/categories/Oils'
+import Snacks from './pages/categories/Snacks'
 import Cart from './pages/checkout/Cart'
 import Checkout from './pages/checkout/Checkout'
 import Confirmation from './pages/checkout/Confirmation'
@@ -65,6 +66,7 @@ export default function App() {
 <Route path="/category/tubers" element={<Tubers />} />
 <Route path="/category/vegetables" element={<Vegetables />} />
 <Route path="/category/oils" element={<Oils />} />
+<Route path="/category/snacks" element={<Snacks />} />
 <Route path="/vendors" element={<VendorsList />} />
 <Route path="/vendor/:id" element={<VendorPage />} />
 <Route path="/profile" element={<AuthRoute><Profile /></AuthRoute>} />

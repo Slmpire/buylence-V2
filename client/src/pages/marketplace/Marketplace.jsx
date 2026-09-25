@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from '../../components/common/Navbar'
 import Footer from '../../components/common/Footer'
 import ProductCard from '../../components/product/ProductCard'
@@ -14,6 +14,7 @@ const CATEGORIES = [
 export default function Marketplace() {
   const isMobile = useIsMobile()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -26,16 +27,18 @@ export default function Marketplace() {
 
   useEffect(() => {
     fetchProducts()
-  }, [activeCategory, sort, page])
+  }, [activeCategory, sort, page, searchParams])
 
   async function fetchProducts() {
     setLoading(true)
     try {
+      const filter = searchParams.get('filter')
       const params = {
         page,
         limit: 12,
         ...(activeCategory !== 'All' && { category: activeCategory }),
         ...(search.trim() && { search: search.trim() }),
+        ...(filter === 'flash' || filter === 'special' ? { flashDeal: true } : {}),
       }
       const res = await api.get('/products', { params })
       setProducts(res.data.products)

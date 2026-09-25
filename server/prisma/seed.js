@@ -186,7 +186,7 @@ async function main() {
       comparePrice: 3800,
       stock: 50,
       // Ofada Rice (1kg)
-      images: ['https://images.unsplash.com/photo-1536304993881-ff86e0c9b516?w=400&q=80'],
+      images: ['https://images.unsplash.com/photo-1536304993881-ff86e0c9b516?w=600&q=80'],
       availableHalls: ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'ETF Hall'],
       flashDeal: false,
     },
@@ -200,7 +200,7 @@ async function main() {
       comparePrice: null,
       stock: 35,
       // Brown Rice (1kg)
-      images: ['https://images.unsplash.com/photo-1626016761073-1e1b3f07af15?w=400&q=80'],
+      images: ['https://images.unsplash.com/photo-1626016761073-1e1b3f07af15?w=600&q=80'],
       availableHalls: ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'ETF Hall', 'Angola Hall'],
       flashDeal: false,
     },
@@ -213,8 +213,8 @@ async function main() {
       price: 4200,
       comparePrice: 5000,
       stock: 20,
-      // Yam Tubers (3kg)
-      images: ['https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=400&q=80'],
+      // Yam Tubers (3kg) — corrected yam image
+      images: ['https://images.unsplash.com/photo-1590868309235-ea34bed7bd7f?w=600&q=80'],
       availableHalls: ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall'],
       flashDeal: true,
     },
@@ -228,7 +228,7 @@ async function main() {
       comparePrice: null,
       stock: 15,
       // Fresh Tilapia Fish (1kg)
-      images: ['https://images.unsplash.com/photo-1615141982883-c7ad0e69fd62?w=400&q=80'],
+      images: ['https://images.unsplash.com/photo-1615141982883-c7ad0e69fd62?w=600&q=80'],
       availableHalls: ['Awo Hall', 'Moremi Hall'],
       flashDeal: false,
     },
@@ -241,7 +241,7 @@ async function main() {
       price: 6500,
       comparePrice: 7200,
       stock: 25,
-      images: ['https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=400&q=80'],
+      images: ['https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=600&q=80'],
       availableHalls: ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'ETF Hall'],
       flashDeal: false,
     },
@@ -255,9 +255,23 @@ async function main() {
       comparePrice: null,
       stock: 40,
       // Groundnut Oil (75cl)
-      images: ['https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&q=80'],
+      images: ['https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=600&q=80'],
       availableHalls: ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'ETF Hall', 'Angola Hall'],
       flashDeal: false,
+    },
+    {
+      name: 'Red Palm Oil (1L)',
+      description: 'Pure unadulterated red palm oil, rich in natural vitamins, sourced fresh from Osun mills.',
+      category: 'Oils & Spices',
+      unit: 'Per litre',
+      sku: 'BL-OL-002',
+      price: 2800,
+      comparePrice: 3200,
+      stock: 45,
+      // Red Palm Oil (1L)
+      images: ['https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=600&q=80'],
+      availableHalls: ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'ETF Hall', 'Angola Hall', 'Mozambique Hall'],
+      flashDeal: true,
     },
     {
       name: 'Sweet Potato (2kg)',
@@ -269,7 +283,7 @@ async function main() {
       comparePrice: null,
       stock: 30,
       // Sweet Potato (2kg)
-      images: ['https://images.unsplash.com/photo-1596097635121-14b38bfd248c?w=400&q=80'],
+      images: ['https://images.unsplash.com/photo-1596097635121-14b38bfd248c?w=600&q=80'],
       availableHalls: ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall'],
       flashDeal: false,
     },
@@ -282,8 +296,8 @@ async function main() {
       price: 5500,
       comparePrice: 6000,
       stock: 60,
-      // Garri (5kg)
-      images: ['https://images.unsplash.com/photo-1612257417666-f4b8c14a7987?w=400&q=80'],
+      // Garri (5kg) — corrected cassava grain bowl image
+      images: ['https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&q=80'],
       availableHalls: ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'ETF Hall', 'Angola Hall', 'Mozambique Hall'],
       flashDeal: true,
     },
@@ -304,28 +318,28 @@ async function main() {
     {
       name: 'Butter Croissant',
       description: 'Baked fresh every morning. Flaky, buttery, and warm.',
-      category: 'Bread & Bakery',
+      category: 'Snacks & Beverages',
       unit: 'Per piece',
       sku: 'BL-BK-001',
       price: 1200,
       comparePrice: null,
       stock: 30,
       // Butter Croissant
-      images: ['https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&q=80'],
+      images: ['https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=600&q=80'],
       availableHalls: ['Moremi Hall', 'Fajuyi Hall', 'Awo Hall'],
       flashDeal: false,
     },
     {
       name: 'Vanilla Cold Brew (500ml)',
       description: 'Smooth cold brew with a hint of vanilla. Large cup.',
-      category: 'Beverages & Drinks',
+      category: 'Snacks & Beverages',
       unit: 'Per piece',
       sku: 'BL-BV-001',
       price: 1500,
       comparePrice: null,
       stock: 20,
       // Vanilla Cold Brew (500ml)
-      images: ['https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400&q=80'],
+      images: ['https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=600&q=80'],
       availableHalls: ['Moremi Hall', 'Fajuyi Hall', 'Awo Hall', 'ETF Hall'],
       flashDeal: false,
     },
@@ -339,7 +353,7 @@ async function main() {
       comparePrice: null,
       stock: 50,
       // Chin Chin (200g)
-      images: ['https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=400&q=80'],
+      images: ['https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=600&q=80'],
       availableHalls: ['Moremi Hall', 'Fajuyi Hall', 'Awo Hall', 'ETF Hall', 'Angola Hall'],
       flashDeal: false,
     },
@@ -352,22 +366,22 @@ async function main() {
       price: 600,
       comparePrice: null,
       stock: 40,
-      // Puff Puff (10 pieces)
-      images: ['https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&q=80'],
+      // Puff Puff (10 pieces) — corrected golden fried dough balls image
+      images: ['https://images.unsplash.com/photo-1541599540903-216a46ca1dc0?w=600&q=80'],
       availableHalls: ['Moremi Hall', 'Fajuyi Hall'],
       flashDeal: true,
     },
     {
       name: 'Zobo Drink (1L)',
       description: 'Chilled hibiscus zobo with ginger and pineapple flavour.',
-      category: 'Beverages & Drinks',
+      category: 'Snacks & Beverages',
       unit: 'Per litre',
       sku: 'BL-BV-002',
       price: 1000,
       comparePrice: 1200,
       stock: 25,
       // Zobo Drink (1L)
-      images: ['https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=400&q=80'],
+      images: ['https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=600&q=80'],
       availableHalls: ['Moremi Hall', 'Fajuyi Hall', 'Awo Hall', 'ETF Hall'],
       flashDeal: false,
     },

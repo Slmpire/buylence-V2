@@ -37,7 +37,7 @@ const BROWSE_CATEGORIES = [
 
 const STUDENT_FAVORITES = [
   { id: 1, name: 'Ofada Rice (1kg)', tag: 'LOCAL HARVEST', price: 3200, sellers: 7, img: 'https://images.unsplash.com/photo-1536304993881-ff86e0c9b516?w=400&q=80' },
-  { id: 2, name: 'Garri (5kg)', tag: 'IJEBU WHITE', price: 5500, sellers: 11, img: 'https://images.unsplash.com/photo-1612257417666-f4b8c14a7987?w=400&q=80' },
+  { id: 2, name: 'Garri (5kg)', tag: 'IJEBU WHITE', price: 5500, sellers: 11, img: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&q=80' },
   { id: 3, name: 'Groundnut Oil (75cl)', tag: 'COLD PRESSED', price: 2400, sellers: 4, img: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&q=80' },
   { id: 4, name: 'Zobo Drink (1L)', tag: 'FRESH DAILY', price: 1000, sellers: 3, img: 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=400&q=80' },
 ]
@@ -352,47 +352,62 @@ export default function Home() {
 
             {/* Flash deal */}
             <div style={{
-              backgroundColor: '#6B6B65', borderRadius: 16,
+              borderRadius: 16,
               padding: isMobile ? '24px 20px' : '36px',
               display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-              minHeight: isMobile ? 200 : 260,
+              minHeight: isMobile ? 220 : 280,
               position: 'relative', overflow: 'hidden',
             }}>
+              <img
+                src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=900&q=80"
+                alt="Semester Kit"
+                style={{
+                  position: 'absolute', inset: 0,
+                  width: '100%', height: '100%', objectFit: 'cover',
+                  display: 'block',
+                }}
+              />
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: 'linear-gradient(to top, rgba(20,20,20,0.92) 0%, rgba(20,20,20,0.4) 60%, rgba(20,20,20,0.2) 100%)',
+              }} />
               <div style={{
                 position: 'absolute', top: 16, right: 16,
                 fontSize: isMobile ? 48 : 72, fontWeight: 900,
-                color: 'rgba(255,255,255,0.07)', lineHeight: 1, userSelect: 'none',
+                color: 'rgba(255,255,255,0.12)', lineHeight: 1, userSelect: 'none',
               }}>
                 FLASH
               </div>
-              <span style={{
-                backgroundColor: 'var(--amber)', color: 'white',
-                fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
-                padding: '4px 10px', borderRadius: 4,
-                width: 'fit-content', marginBottom: 10,
-              }}>
-                WEEKEND SPECIAL
-              </span>
-              <h3 style={{
-                fontSize: isMobile ? 20 : 26, fontWeight: 900,
-                color: 'white', lineHeight: 1.2, marginBottom: 8,
-              }}>
-                The Ultimate<br />Semester Kit
-              </h3>
-              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginBottom: 16, lineHeight: 1.5 }}>
-                Essential food bundle for the new semester.
-              </p>
-              <button
-                onClick={() => navigate('/marketplace?filter=flash')}
-                style={{
-                  backgroundColor: 'white', color: 'var(--charcoal)',
-                  border: 'none', borderRadius: 'var(--radius-pill)',
-                  padding: '11px 20px', fontWeight: 700, fontSize: 12,
-                  cursor: 'pointer', width: 'fit-content', fontFamily: 'Inter, sans-serif',
-                }}
-              >
-                CLAIM DEAL ₦25,000
-              </button>
+              <div style={{ position: 'relative', zIndex: 2 }}>
+                <span style={{
+                  backgroundColor: 'var(--amber)', color: 'white',
+                  fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
+                  padding: '4px 10px', borderRadius: 4,
+                  width: 'fit-content', marginBottom: 10, display: 'inline-block',
+                }}>
+                  WEEKEND SPECIAL
+                </span>
+                <h3 style={{
+                  fontSize: isMobile ? 20 : 26, fontWeight: 900,
+                  color: 'white', lineHeight: 1.2, marginBottom: 8,
+                }}>
+                  The Ultimate<br />Semester Kit
+                </h3>
+                <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginBottom: 16, lineHeight: 1.5 }}>
+                  Essential food bundle for the new semester.
+                </p>
+                <button
+                  onClick={() => navigate('/marketplace?filter=flash')}
+                  style={{
+                    backgroundColor: 'white', color: 'var(--charcoal)',
+                    border: 'none', borderRadius: 'var(--radius-pill)',
+                    padding: '11px 20px', fontWeight: 700, fontSize: 12,
+                    cursor: 'pointer', width: 'fit-content', fontFamily: 'Inter, sans-serif',
+                  }}
+                >
+                  CLAIM DEAL ₦25,000
+                </button>
+              </div>
             </div>
 
             {/* Right column */}
