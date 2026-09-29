@@ -245,3 +245,37 @@ model Review {
 
   @@map("reviews")
 }
+
+// ─────────────── NOTIFICATION ───────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title     String
+  message   String
+  type      String   @default("INFO")
+  link      String?
+  read      Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  orderUpdates    Boolean  @default(true)
+  flashDeals      Boolean  @default(true)
+  vendorMessages  Boolean  @default(false)
+  weeklyDigest    Boolean  @default(true)
+  marketingEmails Boolean  @default(false)
+
+  updatedAt       DateTime @updatedAt
+
+  @@map("notification_preferences")
+}

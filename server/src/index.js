@@ -61,6 +61,7 @@ app.use('/api/vendors', require('./routes/vendor.routes'))
 app.use('/api/orders', require('./routes/order.routes'))
 app.use('/api/riders', require('./routes/rider.routes'))
 app.use('/api/payments', require('./routes/payment.routes'))
+app.use('/api/notifications', require('./routes/notification.routes'))
 
 // ── 404 fallback ──
 app.use((req, res) => {
