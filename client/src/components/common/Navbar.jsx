@@ -1,19 +1,48 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Search, ShoppingCart, Bell, User, LogOut, Menu, X } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import useCartStore from '../../store/cartStore'
 import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
+import NotificationDrawer from './NotificationDrawer'
+import { auth } from '../../lib/firebase'
 
 export default function Navbar() {
   const [query, setQuery] = useState('')
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+
   const navigate = useNavigate()
   const location = useLocation()
   const cartCount = useCartStore(s => s.items.reduce((t, i) => t + i.qty, 0))
   const { isLoggedIn, user, logout } = useAuthStore()
   const isMobile = useIsMobile()
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchUnreadCount()
+    } else {
+      setUnreadCount(0)
+    }
+  }, [isLoggedIn])
+
+  async function fetchUnreadCount() {
+    try {
+      const token = await auth.currentUser?.getIdToken()
+      if (!token) return
+      const res = await fetch('/api/notifications', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setUnreadCount(data.unreadCount || 0)
+      }
+    } catch (err) {
+      console.error('Error fetching unread count:', err)
+    }
+  }
 
   function handleSearch(e) {
     e.preventDefault()

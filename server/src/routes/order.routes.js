@@ -6,6 +6,7 @@ const asyncHandler = require('express-async-handler')
 const prisma = require('../utils/prisma')
 const { releaseEscrow } = require('../services/escrow.service')
 const { revertExpiredClaims } = require('../services/claimExpiry.service')
+const { notifyUser } = require('../controllers/notification.controller')
 
 function generateOrderNumber() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -159,6 +160,15 @@ router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(asyn
     include: { items: true, vendor: { select: { storeName: true, hall: true } } },
   })
 
+  // Trigger notification for buyer
+  notifyUser(req.user.id, {
+    title: `Order Placed (${order.orderNumber})`,
+    message: `Your order from ${vendor.storeName} has been placed successfully.`,
+    type: 'ORDER',
+    link: `/orders/${order.id}`,
+    category: 'orderUpdates',
+  }).catch(() => {})
+
   res.status(201).json({ order })
 }))
 
@@ -243,6 +253,14 @@ router.post('/:id/confirm-receipt', authenticate, asyncHandler(async (req, res) 
 
   await releaseEscrow(updated)
 
+  notifyUser(order.buyerId, {
+    title: `Order Completed (${order.orderNumber})`,
+    message: `Payment released. Thank you for shopping on Buylence!`,
+    type: 'ORDER',
+    link: `/orders/${order.id}`,
+    category: 'orderUpdates',
+  }).catch(() => {})
+
   res.json({ order: updated, message: 'Receipt confirmed. Payment has been released to the vendor.' })
 }))
 
@@ -260,6 +278,14 @@ router.post('/:id/confirm-preparing', authenticate, requireRole('VENDOR'), async
     where: { id: order.id },
     data: { status: 'PREPARING' },
   })
+
+  notifyUser(order.buyerId, {
+    title: `Order Preparing (${order.orderNumber})`,
+    message: `The vendor has started preparing your order.`,
+    type: 'ORDER',
+    link: `/orders/${order.id}`,
+    category: 'orderUpdates',
+  }).catch(() => {})
 
   res.json({ order: updated, message: 'Order confirmed. Start preparing it for pickup.' })
 }))
@@ -281,6 +307,14 @@ router.post('/:id/ready-for-pickup', authenticate, requireRole('VENDOR'), asyncH
       readyForPickupAt: new Date(),
     },
   })
+
+  notifyUser(order.buyerId, {
+    title: `Order Ready (${order.orderNumber})`,
+    message: `Your order is ready for pickup and has been assigned to the delivery pool.`,
+    type: 'ORDER',
+    link: `/orders/${order.id}`,
+    category: 'orderUpdates',
+  }).catch(() => {})
 
   res.json({ order: updated, message: 'Order is now in the rider pool.' })
 }))
@@ -307,6 +341,14 @@ router.post('/:id/cancel', authenticate, asyncHandler(async (req, res) => {
       paymentStatus: order.paymentStatus === 'HELD_IN_ESCROW' ? 'REFUNDED' : order.paymentStatus,
     },
   })
+
+  notifyUser(order.buyerId, {
+    title: `Order Cancelled (${order.orderNumber})`,
+    message: `Your order has been cancelled.`,
+    type: 'ORDER',
+    link: `/orders/${order.id}`,
+    category: 'orderUpdates',
+  }).catch(() => {})
 
   res.json({ order: updated, message: 'Order cancelled.' })
 }))
@@ -397,6 +439,14 @@ router.post('/:id/delivered', authenticate, requireRole('RIDER'), asyncHandler(a
     order: updated,
     message: 'Marked as delivered. Waiting for buyer to confirm receipt to release payment.',
   })
+
+  notifyUser(order.buyerId, {
+    title: `Order Delivered (${order.orderNumber})`,
+    message: `Rider has delivered your order to ${order.deliveryHall}. Please confirm receipt.`,
+    type: 'ORDER',
+    link: `/orders/${order.id}`,
+    category: 'orderUpdates',
+  }).catch(() => {})
 }))
 
 module.exports = router
