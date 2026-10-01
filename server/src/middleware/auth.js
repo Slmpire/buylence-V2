@@ -23,16 +23,37 @@ async function authenticate(req, res, next) {
       include: { vendor: true, rider: true },
     })
 
-    // First-time login — create a minimal buyer record
+    // First-time login — link existing email user or create a minimal buyer record
     if (!user) {
-      user = await prisma.user.create({
-        data: {
-          firebaseUid: decoded.uid,
-          email: decoded.email || '',
-          fullName: decoded.name || decoded.email?.split('@')[0] || 'New User',
-        },
-        include: { vendor: true, rider: true },
-      })
+      const email = decoded.email || ''
+      if (email) {
+        user = await prisma.user.findUnique({
+          where: { email },
+          include: { vendor: true, rider: true },
+        })
+      }
+
+      if (user) {
+        // Link firebaseUid to existing user account
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            firebaseUid: decoded.uid,
+            ...(decoded.picture && !user.avatarUrl && { avatarUrl: decoded.picture }),
+          },
+          include: { vendor: true, rider: true },
+        })
+      } else {
+        user = await prisma.user.create({
+          data: {
+            firebaseUid: decoded.uid,
+            email: email || `${decoded.uid}@google.user`,
+            fullName: decoded.name || (email ? email.split('@')[0] : 'New User'),
+            ...(decoded.picture && { avatarUrl: decoded.picture }),
+          },
+          include: { vendor: true, rider: true },
+        })
+      }
     }
 
     req.user = user

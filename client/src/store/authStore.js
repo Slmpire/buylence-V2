@@ -41,25 +41,19 @@ const useAuthStore = create(
         })
         return unsubscribe
       },
-          // ── Login with Google ──
-      loginWithGoogle: async () => {
-
+      // ── Login / Signup with Google ──
+      loginWithGoogle: async (desiredRole = 'BUYER') => {
         const cred = await signInWithPopup(auth, googleProvider)
 
-        // Sync to backend — creates User row if first time
-
+        // Sync to backend — creates User row if first time, or links existing account
+        const fullName = cred.user.displayName || (cred.user.email ? cred.user.email.split('@')[0] : 'User')
         const res = await api.post('/auth/sync', {
-
-          fullName: cred.user.displayName || cred.user.email.split('@')[0],
-
-          role: 'BUYER',
-
+          fullName,
+          role: desiredRole,
         })
 
         set({ user: res.data.user, isLoggedIn: true })
-
         return res.data.user
-
       },
 
       // ── Login ──

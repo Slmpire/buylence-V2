@@ -6,7 +6,7 @@ import { useIsMobile } from '../../hooks/useWindowSize'
 
 
 
-function GoogleLoginButton() {
+function GoogleLoginButton({ role = 'BUYER' }) {
   const { loginWithGoogle } = useAuthStore()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
@@ -15,10 +15,18 @@ function GoogleLoginButton() {
   async function handleGoogle() {
     setLoading(true)
     try {
-      const user = await loginWithGoogle()
-      if (user?.role === 'VENDOR') navigate('/vendor/dashboard')
-      else if (user?.role === 'RIDER') navigate('/rider/dashboard')
-      else navigate('/')
+      const user = await loginWithGoogle(role)
+      if (user?.role === 'VENDOR') {
+        if (!user.vendor?.onboarded) {
+          navigate('/vendor-onboarding')
+        } else {
+          navigate('/vendor/dashboard')
+        }
+      } else if (user?.role === 'RIDER') {
+        navigate('/rider/dashboard')
+      } else {
+        navigate('/')
+      }
     } catch (err) {
       console.error(err)
       if (err.code === 'auth/popup-closed-by-user') {
@@ -391,7 +399,7 @@ export default function Signup() {
           </div>
 
           {/* Google button */}
-          <GoogleLoginButton />
+          <GoogleLoginButton role={tab === 'vendor' ? 'VENDOR' : 'BUYER'} />
         </form>
 
         {/* Footer */}

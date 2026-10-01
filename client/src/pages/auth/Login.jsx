@@ -14,7 +14,13 @@ function GoogleLoginButton() {
     setLoading(true)
     try {
       const user = await loginWithGoogle()
-      if (user?.role === 'VENDOR') navigate('/vendor/dashboard')
+      if (user?.role === 'VENDOR') {
+        if (!user.vendor?.onboarded) {
+          navigate('/vendor-onboarding')
+        } else {
+          navigate('/vendor/dashboard')
+        }
+      }
       else if (user?.role === 'RIDER') navigate('/rider/dashboard')
       else navigate('/')
     } catch (err) {

@@ -8,16 +8,24 @@ const requireRole = require('../middleware/requireRole')
 // Called by the frontend after Firebase sign-in.
 // Creates or updates the user record in our DB and returns the full profile.
 router.post('/sync', authenticate, asyncHandler(async (req, res) => {
-  const { fullName, phone, hall, room, matric } = req.body
+  const { fullName, phone, hall, room, matric, role } = req.body
+
+  const dataToUpdate = {}
+  if (fullName) dataToUpdate.fullName = fullName
+  if (phone) dataToUpdate.phone = phone
+  if (hall) dataToUpdate.hall = hall
+  if (room) dataToUpdate.room = room
+  if (matric) dataToUpdate.matric = matric
+  if (role && ['BUYER', 'VENDOR'].includes(role)) {
+    // Only update role if user is BUYER or setting VENDOR role
+    if (req.user.role === 'BUYER' || role === req.user.role) {
+      dataToUpdate.role = role
+    }
+  }
+
   const user = await prisma.user.update({
     where: { id: req.user.id },
-    data: {
-      ...(fullName && { fullName }),
-      ...(phone && { phone }),
-      ...(hall && { hall }),
-      ...(room && { room }),
-      ...(matric && { matric }),
-    },
+    data: dataToUpdate,
     include: { vendor: true, rider: true },
   })
   res.json({ user })
