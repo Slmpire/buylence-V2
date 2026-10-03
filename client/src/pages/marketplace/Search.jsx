@@ -41,17 +41,17 @@ export default function Search() {
           search: query.trim(),
           ...(selectedCategories.length === 1 && { category: selectedCategories[0] }),
           ...(selectedHalls.length === 1 && { hall: selectedHalls[0] }),
+          ...(priceMin !== '' && { priceMin }),
+          ...(priceMax !== '' && { priceMax }),
           limit: 30,
         }
       })
         .then(res => {
           let products = res.data.products || []
-          if (priceMin) products = products.filter(p => p.price >= Number(priceMin))
-          if (priceMax) products = products.filter(p => p.price <= Number(priceMax))
           if (sort === 'Price: Low to High') products.sort((a, b) => a.price - b.price)
           if (sort === 'Price: High to Low') products.sort((a, b) => b.price - a.price)
           setResults(products)
-          setTotal(products.length)
+          setTotal(res.data.total !== undefined ? res.data.total : products.length)
         })
         .catch(err => console.error(err))
         .finally(() => setLoading(false))

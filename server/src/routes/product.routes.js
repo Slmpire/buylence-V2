@@ -8,8 +8,11 @@ const prisma = require('../utils/prisma')
 // GET /api/products
 // Public — browse all active products with optional filters
 router.get('/', asyncHandler(async (req, res) => {
-  const { category, hall, search, vendorId, flashDeal, page = 1, limit = 20 } = req.query
+  const { category, hall, search, vendorId, flashDeal, priceMin, priceMax, minPrice, maxPrice, page = 1, limit = 20 } = req.query
   const skip = (Number(page) - 1) * Number(limit)
+
+  const minP = priceMin !== undefined ? priceMin : minPrice
+  const maxP = priceMax !== undefined ? priceMax : maxPrice
 
   const where = {
     isActive: true,
@@ -19,8 +22,14 @@ router.get('/', asyncHandler(async (req, res) => {
     ...(hall && { availableHalls: { has: hall } }),
     ...(search && {
       name: { contains: search, mode: 'insensitive' },
-    ...(req.query.vendorId && { vendorId: req.query.vendorId }),
     }),
+  }
+
+  if (minP !== undefined && minP !== '' && !isNaN(Number(minP))) {
+    where.price = { ...(where.price || {}), gte: Number(minP) }
+  }
+  if (maxP !== undefined && maxP !== '' && !isNaN(Number(maxP))) {
+    where.price = { ...(where.price || {}), lte: Number(maxP) }
   }
 
   const [products, total] = await Promise.all([

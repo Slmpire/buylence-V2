@@ -35,6 +35,8 @@ export function useSearch(initialQuery = '') {
         limit: 20,
         ...(searchFilters.category && { category: searchFilters.category }),
         ...(searchFilters.hall && { hall: searchFilters.hall }),
+        ...(searchFilters.priceMin !== '' && searchFilters.priceMin !== undefined && { priceMin: searchFilters.priceMin }),
+        ...(searchFilters.priceMax !== '' && searchFilters.priceMax !== undefined && { priceMax: searchFilters.priceMax }),
       }
 
       const res = await api.get('/products', { params })
