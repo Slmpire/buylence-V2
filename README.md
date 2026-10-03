@@ -23,6 +23,7 @@ Live URLs:
 - [Payment Integration](#payment-integration)
 - [Order Lifecycle](#order-lifecycle)
 - [User Roles](#user-roles)
+- [Database Schema](#database-schema)
 - [Deployment](#deployment)
 - [Known Issues and Remaining Work](#known-issues-and-remaining-work)
 
@@ -34,7 +35,7 @@ Buylence solves a real problem at OAU: students have no trusted digital platform
 
 The platform provides four distinct portals:
 
-- **Student portal** — browse products, add to cart, checkout with Nomba, track orders
+- **Student portal** — browse products, add to cart, checkout with Nomba, track orders, view notifications
 - **Vendor portal** — manage inventory, confirm orders, track earnings
 - **Rider portal** — claim deliveries from a campus-wide pool, mark pickup and delivery
 - **Admin dashboard** — verify vendors, manage riders, oversee all orders and users
@@ -46,26 +47,30 @@ Payments are held in escrow via Nomba and released to the vendor only after the 
 ## Features
 
 ### Student
-- Browse marketplace with category and hall filters
-- Search products across all vendors
-- Add to cart and checkout with Nomba payment gateway
-- Escrow-protected payments — funds held until delivery confirmed
+- Browse marketplace with category, hall, and server-side price range filters (`priceMin`, `priceMax`)
+- Search products across all vendors with debounced backend query processing
+- Interactive **Product Detail Modal** — quick view modal with stock status, hall availability, vendor info, and quantity controls
+- Add to cart with visual checkmark feedback and persistent cart state
+- Complete checkout with Nomba payment gateway
+- Escrow-protected payments — funds held safely until delivery confirmation
 - Real-time order status tracking
-- Confirm delivery to release escrow payment
+- Confirm delivery to release escrow payment to vendor
+- In-app **Notification Drawer** with unread badge counter and categorized alerts
+- Customizable notification preferences (order updates, flash deals, vendor messages, weekly digest)
 - Order history and archive
 - Profile management and account settings
-- Password change via Firebase
+- Password change via Firebase & seamless Google Sign-in sync
 
 ### Vendor
 - Onboarding wizard — store setup, categories, delivery halls
-- Product inventory management — add, edit, delete
+- Product inventory management — add, edit, delete (soft deletion)
 - Order management with lifecycle actions — confirm, mark ready for pickup
 - Earnings dashboard with today, weekly, monthly, and all-time breakdown
 - Hall delivery overview — read-only since riders handle delivery
 
 ### Rider
 - Campus-wide pending order pool
-- Claim orders with 15-minute auto-expiry — unclaimed orders return to pool
+- Claim orders with 15-minute auto-expiry — unclaimed orders return to pool automatically
 - Mark picked up and mark delivered actions
 - Delivery history paginated
 - Earnings breakdown per delivery
@@ -88,11 +93,11 @@ Payments are held in escrow via Nomba and released to the vendor only after the 
 |---|---|
 | React 18 + Vite | UI framework and build tool |
 | React Router v6 | Client-side routing with role-based guards |
-| Zustand | Global state management with localStorage persistence |
+| Zustand | Global state management (auth, cart, search) with localStorage persistence |
 | Axios | HTTP client with Firebase token interceptor |
-| Firebase JS SDK v12 | Authentication — email/password and Google sign-in |
+| Firebase JS SDK v12 | Authentication — email/password and Google sign-in with auto-sync |
 | Lucide React | Icon library |
-| Custom inline styles | Design system — no CSS framework dependency |
+| Custom Vanilla CSS | Design system & micro-animations — no heavy CSS framework dependencies |
 
 ### Backend
 
@@ -120,19 +125,22 @@ buylence/
 │   │   └── _redirects               # SPA routing for Vercel
 │   ├── src/
 │   │   ├── components/
+│   │   │   ├── cart/
 │   │   │   ├── common/
-│   │   │   │   ├── Navbar.jsx        # Main navigation with mobile hamburger
+│   │   │   │   ├── Navbar.jsx        # Main navigation with notification bell & mobile drawer
 │   │   │   │   ├── Footer.jsx        # Site footer with mobile accordion
+│   │   │   │   ├── NotificationDrawer.jsx # Slide-out notification panel & settings
 │   │   │   │   └── ProtectedRoute.jsx # AuthRoute, VendorRoute, RiderRoute, AdminRoute
 │   │   │   ├── product/
-│   │   │   │   ├── ProductCard.jsx   # Shared product card with add-to-cart
+│   │   │   │   ├── ProductCard.jsx   # Shared product card with add-to-cart & detail modal trigger
+│   │   │   │   ├── ProductModal.jsx  # Interactive product detail sheet / quick view
 │   │   │   │   └── CategoryPage.jsx  # Generic category page fetching real API
 │   │   │   └── vendor/
 │   │   │       └── VendorLayout.jsx  # Shared vendor shell with sidebar
 │   │   ├── hooks/
 │   │   │   ├── useAuth.js            # Firebase auth hook
 │   │   │   ├── useCart.js            # Cart hook with order placement
-│   │   │   ├── useSearch.js          # Debounced product search hook
+│   │   │   ├── useSearch.js          # Server-side search & price filter hook
 │   │   │   └── useWindowSize.js      # Mobile responsive hook
 │   │   ├── lib/
 │   │   │   ├── axios.js              # Axios instance with Firebase token interceptor
@@ -149,7 +157,8 @@ buylence/
 │   │   │   │   ├── Proteins.jsx      # Proteins & Meat category
 │   │   │   │   ├── Tubers.jsx        # Tubers & Roots category
 │   │   │   │   ├── Vegetables.jsx    # Vegetables category
-│   │   │   │   └── Oils.jsx          # Oils & Spices category
+│   │   │   │   ├── Oils.jsx          # Oils & Spices category
+│   │   │   │   └── Snacks.jsx        # Snacks & Beverages category
 │   │   │   ├── checkout/
 │   │   │   │   ├── Cart.jsx          # Cart page with item management
 │   │   │   │   ├── Checkout.jsx      # 3-step checkout with Nomba integration
@@ -160,7 +169,7 @@ buylence/
 │   │   │   │   └── UserSettings.jsx  # Password change, notifications, privacy
 │   │   │   ├── marketplace/
 │   │   │   │   ├── Marketplace.jsx   # Product grid with category and sort filters
-│   │   │   │   └── Search.jsx        # Search with sidebar filters and masonry grid
+│   │   │   │   └── Search.jsx        # Search with sidebar filters, price slider & grid
 │   │   │   ├── onboarding/
 │   │   │   │   └── VendorOnboarding.jsx # 3-step vendor onboarding wizard
 │   │   │   ├── orders/
@@ -174,7 +183,6 @@ buylence/
 │   │   │       ├── VendorDashboard.jsx # Vendor stats and recent orders
 │   │   │       ├── VendorPage.jsx    # Public vendor storefront
 │   │   │       ├── VendorsList.jsx   # Vendor directory with filters
-│   │   │       ├── VendorPlusDashboard.jsx # Plus tier dashboard
 │   │   │       └── vendor-manage/
 │   │   │           ├── MyProducts.jsx    # Inventory management table
 │   │   │           ├── AddProduct.jsx    # Add product form
@@ -183,16 +191,16 @@ buylence/
 │   │   │           └── Settings.jsx      # Store settings saved to DB
 │   │   ├── store/
 │   │   │   ├── authStore.js          # Zustand auth with Firebase and backend sync
-│   │   │   └── cartStore.js          # Zustand cart with localStorage persistence
+│   │   │   ├── cartStore.js          # Zustand cart with localStorage persistence
+│   │   │   └── searchStore.js        # Search state store
 │   │   └── App.jsx                   # All routes with role-based guards
 │   ├── vercel.json                   # Vercel SPA routing config
-│   ├── .env                          # Not committed — see Environment Variables
 │   └── package.json
 │
 └── server/                           # Express backend API
     ├── prisma/
-    │   ├── schema.prisma             # Full database schema with all models
-    │   └── seed.js                   # Sample data — 2 vendors, 13 products, 2 riders
+    │   ├── schema.prisma             # Database schema (User, Vendor, Rider, Product, Order, Notification, etc.)
+    │   └── seed.js                   # Seed data with products, vendors, and categories
     ├── src/
     │   ├── config/
     │   │   └── firebase.js           # Firebase Admin SDK initialization
@@ -202,11 +210,12 @@ buylence/
     │   │   └── errorHandler.js       # Centralized error handler
     │   ├── routes/
     │   │   ├── auth.routes.js        # POST /sync, GET /me, PATCH /profile, GET /users
-    │   │   ├── product.routes.js     # CRUD, search, category filter, vendor filter
+    │   │   ├── product.routes.js     # CRUD, search, price filters (priceMin/priceMax), hall filter
     │   │   ├── vendor.routes.js      # List, onboard, dashboard, earnings, settings
     │   │   ├── order.routes.js       # Full order lifecycle — all roles
     │   │   ├── rider.routes.js       # Admin CRUD and rider self-management
-    │   │   └── payment.routes.js     # Nomba initialize, verify, webhook
+    │   │   ├── payment.routes.js     # Nomba initialize, verify, webhook
+    │   │   └── notification.routes.js # GET/PATCH notifications & preferences
     │   ├── services/
     │   │   ├── nomba.service.js      # Nomba API client with token caching
     │   │   ├── escrow.service.js     # Escrow release — stamps timestamp, updates vendor sales
@@ -215,7 +224,6 @@ buylence/
     │   │   └── prisma.js             # Prisma singleton with @prisma/adapter-pg
     │   └── index.js                  # Express app — middleware, routes, error handler
     ├── prisma.config.ts              # Prisma 7 config with DIRECT_URL for migrations
-    ├── .env                          # Not committed — see Environment Variables
     └── package.json
 ```
 
@@ -250,7 +258,7 @@ npm run prisma:seed
 npm run dev
 ```
 
-Server runs on http://localhost:5000
+Server runs on http://localhost:5000 (or http://localhost:5001)
 
 ### 3. Set up the frontend
 
@@ -277,13 +285,11 @@ DATABASE_URL=postgresql://postgres:[password]@[host]:6543/postgres?pgbouncer=tru
 DIRECT_URL=postgresql://postgres:[password]@[host]:5432/postgres?connect_timeout=30
 
 # Firebase Admin SDK
-# Get from Firebase Console > Project Settings > Service Accounts > Generate new private key
 FIREBASE_PROJECT_ID=shopbuylence
 FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@shopbuylence.iam.gserviceaccount.com
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_KEY_HERE\n-----END PRIVATE KEY-----\n"
 
 # Nomba Payment Gateway
-# Get from developer.nomba.com — use TEST credentials for development
 NOMBA_CLIENT_ID=your-nomba-client-id
 NOMBA_CLIENT_SECRET=your-nomba-client-secret
 NOMBA_ACCOUNT_ID=your-parent-account-id
@@ -304,8 +310,6 @@ PORT=5000
 VITE_API_URL=http://localhost:5000/api
 ```
 
-For production, set `VITE_API_URL` to your Railway backend URL.
-
 ---
 
 ## API Reference
@@ -316,7 +320,7 @@ All endpoints prefixed with `/api`. Protected routes require `Authorization: Bea
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| POST | `/auth/sync` | Required | Create or update user in DB after Firebase sign-in |
+| POST | `/auth/sync` | Required | Create or update user in DB after Firebase sign-in / Google auth |
 | GET | `/auth/me` | Required | Get current user profile with vendor/rider includes |
 | PATCH | `/auth/profile` | Required | Update fullName, phone, hall, room, matric, bio |
 | GET | `/auth/users` | Admin only | List all platform users |
@@ -325,12 +329,23 @@ All endpoints prefixed with `/api`. Protected routes require `Authorization: Bea
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | `/products` | Public | List products — supports search, category, hall, vendorId, page, limit |
+| GET | `/products` | Public | List products — supports `search`, `category`, `hall`, `vendorId`, `priceMin`, `priceMax`, `page`, `limit` |
 | GET | `/products/mine` | Vendor | Get authenticated vendor's own products |
 | GET | `/products/:id` | Public | Get single product by ID |
 | POST | `/products` | Vendor | Create new product |
 | PATCH | `/products/:id` | Vendor | Update product |
 | DELETE | `/products/:id` | Vendor | Soft delete product — sets isActive false |
+
+### Notifications — /api/notifications
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | `/notifications` | Required | Fetch current user's notifications |
+| PATCH | `/notifications/read-all` | Required | Mark all notifications as read |
+| PATCH | `/notifications/:id/read` | Required | Mark a specific notification as read |
+| DELETE | `/notifications/:id` | Required | Delete a notification |
+| GET | `/notifications/preferences` | Required | Fetch user notification preferences |
+| PUT | `/notifications/preferences` | Required | Update user notification preferences |
 
 ### Vendors — /api/vendors
 
@@ -345,8 +360,6 @@ All endpoints prefixed with `/api`. Protected routes require `Authorization: Bea
 | PATCH | `/vendors/:id/verify` | Admin | Toggle vendor verified status |
 
 ### Orders — /api/orders
-
-Note: Named routes must come before /:id in the router to avoid conflicts.
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
@@ -420,6 +433,8 @@ Order status → CONFIRMED_BY_BUYER
 Escrow released → escrowReleasedAt stamped, vendor totalSales updated
 ```
 
+---
+
 ## Order Lifecycle
 
 ```
@@ -440,33 +455,16 @@ CONFIRMED_BY_BUYER        ← escrow released
 Any stage before ASSIGNED_TO_RIDER → CANCELLED
 ```
 
-Rider claim expiry is lazy — checked before every pool fetch using `revertExpiredClaims()`.
-
 ---
 
 ## User Roles
 
 | Role | Access | How to create |
 |---|---|---|
-| BUYER | Default — marketplace, cart, orders, profile | Sign up normally |
+| BUYER | Default — marketplace, cart, orders, profile | Sign up normally or via Google |
 | VENDOR | Vendor dashboard, products, earnings, delivery | Sign up → select Vendor tab → complete onboarding |
 | RIDER | Rider portal — pool, deliveries, earnings | Admin creates via /admin/dashboard Riders tab |
-| ADMIN | Full platform oversight | Sign up → manually set role to ADMIN in Supabase users table |
-
-
-### Creating a Rider Account
-
-Option A — Via Admin Dashboard:
-1. Log in as admin → go to /admin/dashboard → Riders tab
-2. Click Add Rider
-3. Enter the rider's Firebase UID (from Firebase Console → Authentication → Users)
-4. Fill in name, email, phone, vehicle type
-5. Click Add Rider
-
-Option B — Via Supabase:
-1. Have the rider sign up normally at /signup
-2. In Supabase → users table → change their role to RIDER
-3. In Supabase → riders table → add a new row with their user id
+| ADMIN | Full platform oversight | Sign up → manually set role to ADMIN in database |
 
 ---
 
@@ -474,21 +472,15 @@ Option B — Via Supabase:
 
 ### Models
 
-- **User** — all platform users with role enum (BUYER, VENDOR, RIDER, ADMIN)
-- **Vendor** — store profile linked to User, with categories array and delivery settings
-- **Rider** — delivery agent profile linked to User, with vehicle type and stats
-- **Product** — vendor products with images array, available halls array, flash deal flag
-- **Order** — full order with lifecycle status, escrow timestamps, and rider claim expiry
-- **OrderItem** — line items linked to Order and Product with server-side price snapshot
-- **Review** — buyer reviews linked to Order, Vendor, and Buyer
-
-### Key Design Decisions
-
-- Prices are calculated server-side at order time — client-sent prices are ignored
-- Product images and availableHalls are stored as PostgreSQL string arrays
-- Order timestamps are nullable and stamped at each lifecycle transition
-- Rider claims auto-expire via lazy check before every pool fetch
-- Firebase UID is the bridge between Firebase Auth and the database User record
+- **User** — all platform users with role enum (`BUYER`, `VENDOR`, `RIDER`, `ADMIN`), linked to notification preferences and order history.
+- **Vendor** — store profile linked to User, with categories array and delivery settings.
+- **Rider** — delivery agent profile linked to User, with vehicle type and stats.
+- **Product** — vendor products with images array, available halls array, flash deal flag, compare price, and category.
+- **Order** — full order with lifecycle status, escrow timestamps, and rider claim expiry.
+- **OrderItem** — line items linked to Order and Product with server-side price snapshot.
+- **Review** — buyer reviews linked to Order, Vendor, and Buyer.
+- **Notification** — user notifications with title, message, type, read status, and links.
+- **NotificationPreference** — user preference toggles for order updates, flash deals, marketing emails, etc.
 
 ---
 
@@ -504,13 +496,6 @@ Option B — Via Supabase:
 6. Add all environment variables from server/.env
 7. Railway auto-deploys on every push to main
 
-The `postinstall` script in package.json runs `prisma generate` automatically.
-
-For database migrations on Railway, run via Railway CLI:
-```bash
-railway run npx prisma migrate deploy
-```
-
 ### Frontend — Vercel
 
 1. Go to vercel.com and import your GitHub repository
@@ -519,47 +504,37 @@ railway run npx prisma migrate deploy
 4. Add environment variable: `VITE_API_URL=https://buylence-backend-production.up.railway.app/api`
 5. Deploy
 
-The `client/vercel.json` handles SPA routing so direct URL access works.
-
-### Firebase Authorized Domains
-
-After deploying, add your Vercel domain to Firebase:
-- Firebase Console → Authentication → Settings → Authorized domains
-- Add: `buylence-frontend.vercel.app`
-
 ---
 
 ## Known Issues and Remaining Work
 
-### Fixed
-- Prisma v7 driver adapter configuration with @prisma/adapter-pg
-- Express route ordering — named routes must precede /:id parameterized routes
-- CORS trailing slash mismatch between Railway and Vercel
-- Firebase unauthorized domain on production
-- PaymentMethod enum missing NOMBA value
-- VendorOnboarding storeType sending display label instead of enum value
-- Cart items missing vendorId from old persisted localStorage data
+### Fixed / Completed
+- Prisma v7 driver adapter configuration with `@prisma/adapter-pg`
+- Express route ordering — named routes precede `/:id` parameterized routes
+- CORS configuration for local and production Vercel frontend
+- Google Sign-in first-time user creation & backend auth sync (`/api/auth/sync`)
+- Server-side price filtering (`priceMin`, `priceMax`) in product search API
+- Product detail modal popup sheet with real stock, hall availability, and quantity selection
+- Full Notification System (In-app drawer, badge counter, preference settings, notification DB models)
+- Snacks & Beverages category route and page added
+- Mobile text size scaling & cart checkmark feedback animations
 
 ### Remaining
 
 #### High Priority
-- Vercel SPA 404 on direct page reload — vercel.json routing config in progress
-- Nomba webhook registration — requires live Railway URL submitted to Nomba form
-- Full end-to-end order lifecycle test on production URLs
+- Nomba webhook registration — submit live backend Railway URL to Nomba webhook settings
+- Full end-to-end order lifecycle testing on live production environment
 - Admin and rider account creation on production database
 
 #### Medium Priority
-- Nomba webhook signature verification — currently accepts all webhook events without HMAC verification
-- The `paystackRef` column in the orders table stores the Nomba order reference — column should be renamed to `paymentRef` via migration
-- Product image upload — currently accepts URL strings only, no file upload to storage
-- Vendor withdrawal flow — earnings dashboard shows withdrawal history but no actual payout mechanism
+- Nomba webhook signature verification — add HMAC SHA256 signature verification
+- Product image file uploads — enable direct cloud storage upload (e.g. Cloudinary/S3)
+- Vendor withdrawal automated payouts
 
 #### Low Priority
-- WhatsApp vendor contact — UserSettings has allowVendorContact toggle but no actual WhatsApp integration
-- Flash deal scheduling — flashDeal is a boolean flag, no time-based activation
-- Multi-vendor cart — checkout assumes single vendor per cart
-- Push notifications for order status changes
-- Vendor response time calculation — currently hardcoded as less than 15 minutes
+- Flash deal scheduling (time-based automated activation)
+- Multi-vendor cart support (split checkout per vendor)
+- Push notifications for real-time mobile alerts
 
 ---
 
@@ -567,12 +542,13 @@ After deploying, add your Vercel domain to Firebase:
 
 Built for the DevCareer x Nomba Hackathon 2026
 
-- Team: Team TECA
-- University: Obafemi Awolowo University, Ile-Ife, Nigeria
-- For : Nomba Hackathon 2026
+- **Team**: Team TECA
+- **University**: Obafemi Awolowo University, Ile-Ife, Nigeria
+- **Event**: Nomba Hackathon 2026
 
 ---
 
 ## License
 
 MIT
+
