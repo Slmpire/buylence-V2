@@ -1,10 +1,11 @@
 import { Navigate } from 'react-router-dom'
 import useAuthStore from '../../store/authStore'
+import { PageLoader } from './GlobalLoader'
 
-
-// Vendor only — must be logged in as vendor and onboarded    
+// Vendor only — must be logged in as vendor and onboarded
 export function VendorRoute({ children }) {
-  const { isLoggedIn, user } = useAuthStore()
+  const { isLoggedIn, user, loading } = useAuthStore()
+  if (loading) return <PageLoader label="Checking your account…" minHeight="100vh" />
   if (!isLoggedIn) return <Navigate to="/login" replace />
   if (user?.role !== 'VENDOR') return <Navigate to="/" replace />
   if (!user?.vendor?.onboarded) return <Navigate to="/vendor-onboarding" replace />
@@ -13,28 +14,26 @@ export function VendorRoute({ children }) {
 
 // Rider only — must be logged in as rider
 export function RiderRoute({ children }) {
-  const { isLoggedIn, user } = useAuthStore()
-
+  const { isLoggedIn, user, loading } = useAuthStore()
+  if (loading) return <PageLoader label="Checking your account…" minHeight="100vh" />
   if (!isLoggedIn) return <Navigate to="/login" replace />
   if (user?.role !== 'RIDER') return <Navigate to="/" replace />
-
   return children
 }
 
 // Admin only — must be logged in as admin
 export function AdminRoute({ children }) {
-  const { isLoggedIn, user } = useAuthStore()
+  const { isLoggedIn, user, loading } = useAuthStore()
+  if (loading) return <PageLoader label="Checking your account…" minHeight="100vh" />
   if (!isLoggedIn) return <Navigate to="/login" replace />
   if (user?.role !== 'ADMIN') return <Navigate to="/" replace />
   return children
 }
+
 // Authenticated users only — must be logged in
 export function AuthRoute({ children }) {
-  const { isLoggedIn } = useAuthStore()
-
-  if (!isLoggedIn) {
-    return <Navigate to="/login" replace />
-  }
-
+  const { isLoggedIn, loading } = useAuthStore()
+  if (loading) return <PageLoader label="Checking your account…" minHeight="100vh" />
+  if (!isLoggedIn) return <Navigate to="/login" replace />
   return children
 }
