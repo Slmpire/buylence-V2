@@ -5,7 +5,7 @@ import VendorLayout from '../../components/vendor/VendorLayout'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import api from '../../lib/axios'
 
-const CATEGORIES = ['Grains & Cereals', 'Proteins & Meat', 'Tubers & Roots', 'Snacks & Beverages', 'Oils & Spices', 'Bread & Bakery', 'Beverages & Drinks']
+const CATEGORIES = ['Grains & Cereals', 'Snacks & Beverages', 'Oils & Spices', 'Proteins & Meat', 'Tubers & Roots', 'Vegetables']
 const UNITS = ['Per kg', 'Per piece', 'Per pack', 'Per litre', 'Per bundle', 'Per crate']
 const HALLS = ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'Mozambique Hall', 'Angola Hall', 'ETF Hall']
 

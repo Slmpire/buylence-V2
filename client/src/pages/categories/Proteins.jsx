@@ -1,11 +1,11 @@
 import CategoryPage from '../../components/product/CategoryPage'
-export default function Vegetables() {
+export default function Proteins() {
   return (
     <CategoryPage
-      name="Vegetables & Greens"
+      name="PROTEINS & MEAT"
       description="Fresh tomatoes, peppers, onions and seasonal vegetables from local campus farmers."
       emoji="🥦"
-      category="Vegetables"
+     category="Proteins & Meat"
     />
   )
 }
