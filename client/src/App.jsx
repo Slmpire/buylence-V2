@@ -3,6 +3,7 @@ import { useEffect, lazy, Suspense } from 'react'
 import useAuthStore from './store/authStore'
 import GlobalLoader, { PageLoader } from './components/common/GlobalLoader'
 import { VendorRoute, AuthRoute, RiderRoute, AdminRoute } from './components/common/ProtectedRoute'
+import Toaster from './components/common/Toaster'
 
 const Home = lazy(() => import('./pages/Home'))
 const Login = lazy(() => import('./pages/auth/Login'))
@@ -52,6 +53,7 @@ export default function App() {
   return (
     <>
       <GlobalLoader />
+      <Toaster />
       <Suspense fallback={<PageLoader minHeight="100vh" />}>
         <Routes>
           {/* Public routes — anyone can access */}

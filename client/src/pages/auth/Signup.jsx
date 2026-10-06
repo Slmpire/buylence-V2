@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
-
+import { toast } from '../../store/toastStore'
 
 
 function GoogleLoginButton({ role = 'BUYER' }) {
@@ -16,6 +16,7 @@ function GoogleLoginButton({ role = 'BUYER' }) {
     setLoading(true)
     try {
       const user = await loginWithGoogle(role)
+      toast.success(`You're in! Welcome to Buylence, ${user?.fullName?.split(' ')[0] || 'friend'}.`)
       if (user?.role === 'VENDOR') {
         if (!user.vendor?.onboarded) {
           navigate('/vendor-onboarding')
@@ -113,18 +114,26 @@ export default function Signup() {
         role: tab === 'vendor' ? 'VENDOR' : 'BUYER',
       })
 
-      // After signup, update phone number in profile
-      // (Firebase doesn't store phone in the same call)
+          // Save the phone number. If this fails the account still exists,
+      // so don't report the whole signup as failed.
       if (form.phone) {
-        const { updateProfile } = useAuthStore.getState()
-        await updateProfile({ fullName: form.fullName, phone: form.phone })
+        try {
+          const { updateProfile } = useAuthStore.getState()
+          await updateProfile({ fullName: form.fullName, phone: form.phone })
+        } catch (phoneErr) {
+          console.error('Could not save phone number:', phoneErr)
+        }
       }
 
+      const firstName = form.fullName.trim().split(' ')[0]
       if (tab === 'vendor') {
+        toast.success(`Account created, ${firstName}! Now let's set up your store.`)
         navigate('/vendor-onboarding')
       } else {
+        toast.success(`Welcome to Buylence, ${firstName}! Your account was created successfully.`)
         navigate('/')
       }
+
     } catch (err) {
       console.error(err)
       const code = err.code
