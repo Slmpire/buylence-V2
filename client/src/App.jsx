@@ -1,103 +1,104 @@
 import { Routes, Route } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import useAuthStore from './store/authStore'
-import Home from './pages/Home'
-import Login from './pages/auth/Login'
-import Signup from './pages/auth/Signup'
-import Marketplace from './pages/marketplace/Marketplace'
-import Search from './pages/marketplace/Search'
-import Grains from './pages/categories/Grains'
-import Proteins from './pages/categories/Proteins'
-import Tubers from './pages/categories/Tubers'
-import Vegetables from './pages/categories/Vegetables'
-import Oils from './pages/categories/Oils'
-import Snacks from './pages/categories/Snacks'
-import Cart from './pages/checkout/Cart'
-import Checkout from './pages/checkout/Checkout'
-import Confirmation from './pages/checkout/Confirmation'
-import Orders from './pages/orders/Orders'
-import OrderDetail from './pages/orders/OrderDetail'
-import BuyerDashboard from './pages/dashboard/BuyerDashboard'
-import VendorOnboarding from './pages/onboarding/VendorOnboarding'
-import VendorPage from './pages/vendor/VendorPage'
-import VendorDashboard from './pages/vendor/VendorDashboard'
-import VendorPlusDashboard from './pages/vendor/VendorPlusDashboard'
-import MyProducts from './pages/vendor-manage/MyProducts'
-import AddProduct from './pages/vendor-manage/AddProduct'
-import Earnings from './pages/vendor-manage/Earnings'
-import HallDelivery from './pages/vendor-manage/HallDelivery'
-import Settings from './pages/vendor-manage/Settings'
-import VendorsList from './pages/vendor/VendorsList'
-import Profile from './pages/dashboard/Profile'
-import UserSettings from './pages/dashboard/UserSettings'
-import RiderDashboard from './pages/rider/RiderDashboard'
-import RiderHistory from './pages/rider/RiderHistory'
-import RiderEarnings from './pages/rider/RiderEarnings'
-import AdminDashboard from './pages/admin/AdminDashboard'
+import GlobalLoader, { PageLoader } from './components/common/GlobalLoader'
 import { VendorRoute, AuthRoute, RiderRoute, AdminRoute } from './components/common/ProtectedRoute'
-import EditProduct from './pages/vendor-manage/EditProduct'
 
+const Home = lazy(() => import('./pages/Home'))
+const Login = lazy(() => import('./pages/auth/Login'))
+const Signup = lazy(() => import('./pages/auth/Signup'))
+const Marketplace = lazy(() => import('./pages/marketplace/Marketplace'))
+const Search = lazy(() => import('./pages/marketplace/Search'))
+const Grains = lazy(() => import('./pages/categories/Grains'))
+const Proteins = lazy(() => import('./pages/categories/Proteins'))
+const Tubers = lazy(() => import('./pages/categories/Tubers'))
+const Vegetables = lazy(() => import('./pages/categories/Vegetables'))
+const Oils = lazy(() => import('./pages/categories/Oils'))
+const Snacks = lazy(() => import('./pages/categories/Snacks'))
+const Cart = lazy(() => import('./pages/checkout/Cart'))
+const Checkout = lazy(() => import('./pages/checkout/Checkout'))
+const Confirmation = lazy(() => import('./pages/checkout/Confirmation'))
+const Orders = lazy(() => import('./pages/orders/Orders'))
+const OrderDetail = lazy(() => import('./pages/orders/OrderDetail'))
+const BuyerDashboard = lazy(() => import('./pages/dashboard/BuyerDashboard'))
+const VendorOnboarding = lazy(() => import('./pages/onboarding/VendorOnboarding'))
+const VendorPage = lazy(() => import('./pages/vendor/VendorPage'))
+const VendorDashboard = lazy(() => import('./pages/vendor/VendorDashboard'))
+const VendorPlusDashboard = lazy(() => import('./pages/vendor/VendorPlusDashboard'))
+const MyProducts = lazy(() => import('./pages/vendor-manage/MyProducts'))
+const AddProduct = lazy(() => import('./pages/vendor-manage/AddProduct'))
+const EditProduct = lazy(() => import('./pages/vendor-manage/EditProduct'))
+const Earnings = lazy(() => import('./pages/vendor-manage/Earnings'))
+const HallDelivery = lazy(() => import('./pages/vendor-manage/HallDelivery'))
+const Settings = lazy(() => import('./pages/vendor-manage/Settings'))
+const VendorsList = lazy(() => import('./pages/vendor/VendorsList'))
+const Profile = lazy(() => import('./pages/dashboard/Profile'))
+const UserSettings = lazy(() => import('./pages/dashboard/UserSettings'))
+const RiderDashboard = lazy(() => import('./pages/rider/RiderDashboard'))
+const RiderHistory = lazy(() => import('./pages/rider/RiderHistory'))
+const RiderEarnings = lazy(() => import('./pages/rider/RiderEarnings'))
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 
 export default function App() {
   const initAuth = useAuthStore(s => s.initAuth)
 
   useEffect(() => {
-
     const unsubscribe = initAuth()
-
     return () => {
-
       if (typeof unsubscribe === 'function') unsubscribe()
-
     }
-
   }, [])
 
   return (
-    <Routes>
-      // Public routes — anyone can access
-<Route path="/" element={<Home />} />
-<Route path="/login" element={<Login />} />
-<Route path="/signup" element={<Signup />} />
-<Route path="/marketplace" element={<Marketplace />} />
-<Route path="/search" element={<Search />} />
-<Route path="/category/grains" element={<Grains />} />
-<Route path="/category/proteins" element={<Proteins />} />
-<Route path="/category/tubers" element={<Tubers />} />
-<Route path="/category/vegetables" element={<Vegetables />} />
-<Route path="/category/oils" element={<Oils />} />
-<Route path="/category/snacks" element={<Snacks />} />
-<Route path="/vendors" element={<VendorsList />} />
-<Route path="/vendor/:id" element={<VendorPage />} />
-<Route path="/profile" element={<AuthRoute><Profile /></AuthRoute>} />
-<Route path="/user-settings" element={<AuthRoute><UserSettings /></AuthRoute>} />
+    <>
+      <GlobalLoader />
+      <Suspense fallback={<PageLoader minHeight="100vh" />}>
+        <Routes>
+          {/* Public routes — anyone can access */}
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/marketplace" element={<Marketplace />} />
+          <Route path="/search" element={<Search />} />
+          <Route path="/category/grains" element={<Grains />} />
+          <Route path="/category/proteins" element={<Proteins />} />
+          <Route path="/category/tubers" element={<Tubers />} />
+          <Route path="/category/vegetables" element={<Vegetables />} />
+          <Route path="/category/oils" element={<Oils />} />
+          <Route path="/category/snacks" element={<Snacks />} />
+          <Route path="/vendors" element={<VendorsList />} />
+          <Route path="/vendor/:id" element={<VendorPage />} />
 
-// Auth required — logged in users only
-<Route path="/cart" element={<AuthRoute><Cart /></AuthRoute>} />
-<Route path="/checkout" element={<AuthRoute><Checkout /></AuthRoute>} />
-<Route path="/order-confirmation" element={<AuthRoute><Confirmation /></AuthRoute>} />
-<Route path="/orders" element={<AuthRoute><Orders /></AuthRoute>} />
-<Route path="/orders/:id" element={<AuthRoute><OrderDetail /></AuthRoute>} />
-<Route path="/dashboard" element={<AuthRoute><BuyerDashboard /></AuthRoute>} />
+          {/* Auth required — logged in users only */}
+          <Route path="/profile" element={<AuthRoute><Profile /></AuthRoute>} />
+          <Route path="/user-settings" element={<AuthRoute><UserSettings /></AuthRoute>} />
+          <Route path="/cart" element={<AuthRoute><Cart /></AuthRoute>} />
+          <Route path="/checkout" element={<AuthRoute><Checkout /></AuthRoute>} />
+          <Route path="/order-confirmation" element={<AuthRoute><Confirmation /></AuthRoute>} />
+          <Route path="/orders" element={<AuthRoute><Orders /></AuthRoute>} />
+          <Route path="/orders/:id" element={<AuthRoute><OrderDetail /></AuthRoute>} />
+          <Route path="/dashboard" element={<AuthRoute><BuyerDashboard /></AuthRoute>} />
 
-// Vendor only — must be logged in as vendor
-<Route path="/vendor-onboarding" element={<AuthRoute><VendorOnboarding /></AuthRoute>} />
-<Route path="/vendor/dashboard" element={<VendorRoute><VendorDashboard /></VendorRoute>} />
-<Route path="/vendor/dashboard/plus" element={<VendorRoute><VendorPlusDashboard /></VendorRoute>} />
-<Route path="/vendor/products" element={<VendorRoute><MyProducts /></VendorRoute>} />
-<Route path="/vendor/products/new" element={<VendorRoute><AddProduct /></VendorRoute>} />
-<Route path="/vendor/products/edit/:id" element={<VendorRoute><EditProduct /></VendorRoute>} />
-<Route path="/vendor/earnings" element={<VendorRoute><Earnings /></VendorRoute>} />
-<Route path="/vendor/delivery" element={<VendorRoute><HallDelivery /></VendorRoute>} />
-<Route path="/vendor/settings" element={<VendorRoute><Settings /></VendorRoute>} />
+          {/* Vendor only */}
+          <Route path="/vendor-onboarding" element={<AuthRoute><VendorOnboarding /></AuthRoute>} />
+          <Route path="/vendor/dashboard" element={<VendorRoute><VendorDashboard /></VendorRoute>} />
+          <Route path="/vendor/dashboard/plus" element={<VendorRoute><VendorPlusDashboard /></VendorRoute>} />
+          <Route path="/vendor/products" element={<VendorRoute><MyProducts /></VendorRoute>} />
+          <Route path="/vendor/products/new" element={<VendorRoute><AddProduct /></VendorRoute>} />
+          <Route path="/vendor/products/edit/:id" element={<VendorRoute><EditProduct /></VendorRoute>} />
+          <Route path="/vendor/earnings" element={<VendorRoute><Earnings /></VendorRoute>} />
+          <Route path="/vendor/delivery" element={<VendorRoute><HallDelivery /></VendorRoute>} />
+          <Route path="/vendor/settings" element={<VendorRoute><Settings /></VendorRoute>} />
 
-// Rider only — must be logged in as rider
-<Route path="/rider/dashboard" element={<RiderRoute><RiderDashboard /></RiderRoute>} />
-<Route path="/rider/history" element={<RiderRoute><RiderHistory /></RiderRoute>} />
-<Route path="/rider/earnings" element={<RiderRoute><RiderEarnings /></RiderRoute>} />
+          {/* Rider only */}
+          <Route path="/rider/dashboard" element={<RiderRoute><RiderDashboard /></RiderRoute>} />
+          <Route path="/rider/history" element={<RiderRoute><RiderHistory /></RiderRoute>} />
+          <Route path="/rider/earnings" element={<RiderRoute><RiderEarnings /></RiderRoute>} />
 
-// Admin only — must be logged in as admin
-<Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-    </Routes>
+          {/* Admin only */}
+          <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        </Routes>
+      </Suspense>
+    </>
   )
 }
