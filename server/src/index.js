@@ -18,18 +18,33 @@ app.use((req, res, next) => {
   next()
 })
 
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'https://buylence-frontend.vercel.app',
+  process.env.CLIENT_URL,
+  process.env.FRONTEND_URL,
+].filter(Boolean)
+
 app.use(cors({
   origin: (origin, callback) => {
-    const allowed = [
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'https://buylence-frontend.vercel.app',
-    ]
-    if (!origin || allowed.includes(origin)) {
-      callback(null, true)
-    } else {
-      callback(new Error('Not allowed by CORS'))
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    if (!origin) return callback(null, true)
+
+    // Allow explicitly allowed origins or Vercel preview URLs
+    if (allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
+      return callback(null, true)
     }
+
+    // In development mode, allow any local/dev origin
+    if (process.env.NODE_ENV !== 'production') {
+      return callback(null, true)
+    }
+
+    return callback(null, false)
   },
   credentials: true,
 }))
