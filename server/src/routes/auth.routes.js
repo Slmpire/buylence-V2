@@ -2,8 +2,8 @@ const express = require('express')
 const router = express.Router()
 const asyncHandler = require('express-async-handler')
 const prisma = require('../utils/prisma')
-const { authenticate } = require('../middleware/auth')
-const { requireRole } = require('../middleware/auth')
+const authenticate = require('../middleware/auth')
+const requireRole = require('../middleware/requireRole')
 // POST /api/auth/sync
 // Called by the frontend after Firebase sign-in.
 // Creates or updates the user record in our DB and returns the full profile.

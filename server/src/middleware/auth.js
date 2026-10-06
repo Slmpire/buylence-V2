@@ -1,3 +1,6 @@
+const admin = require('../config/firebase')
+const prisma = require('../utils/prisma')
+
 async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization || ''
   const token = authHeader.startsWith('Bearer ')
@@ -23,12 +26,15 @@ async function authenticate(req, res, next) {
   }
 
   try {
-    let user = await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { firebaseUid: decoded.uid },
-      include: { vendor: true, rider: true },
+      include: {
+        vendor: true,
+        rider: true,
+      },
     })
 
-    // ...keep your existing "first-time login" block exactly as it is...
+    // Keep your existing first-time login block here.
 
     req.user = user
     req.firebaseUser = decoded
@@ -43,25 +49,4 @@ async function authenticate(req, res, next) {
   }
 }
 
-function requireRole(...allowedRoles) {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({
-        error: 'Authentication required.',
-      })
-    }
-
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({
-        error: `This action requires one of the following roles: ${allowedRoles.join(', ')}.`,
-      })
-    }
-
-    next()
-  }
-}
-
-module.exports = {
-  authenticate,
-  requireRole,
-}
+module.exports = authenticate
