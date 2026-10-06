@@ -8,6 +8,7 @@ import {
 import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import api from '../../lib/axios'
+import { PageLoader } from '../../components/common/GlobalLoader'
 
 const TABS = ['Overview', 'Vendors', 'Riders', 'Orders', 'Users']
 
@@ -238,7 +239,7 @@ export default function AdminDashboard() {
             </h1>
 
             {loading ? (
-              <p style={{ color: '#9C9488', fontSize: 13 }}>Loading stats...</p>
+                 <PageLoader label="Loading stats…" minHeight="120px" />
             ) : (
               <>
                 {/* Stats grid */}
@@ -361,7 +362,7 @@ export default function AdminDashboard() {
               </div>
 
               {loading ? (
-                <p style={{ padding: '24px 20px', fontSize: 13, color: '#9C9488' }}>Loading...</p>
+                   <PageLoader label="Loading…" minHeight="160px" />
               ) : vendors.length === 0 ? (
                 <p style={{ padding: '24px 20px', fontSize: 13, color: '#9C9488' }}>No vendors yet.</p>
               ) : (
