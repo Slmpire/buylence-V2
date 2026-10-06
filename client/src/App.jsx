@@ -4,6 +4,7 @@ import useAuthStore from './store/authStore'
 import GlobalLoader, { PageLoader } from './components/common/GlobalLoader'
 import { VendorRoute, AuthRoute, RiderRoute, AdminRoute } from './components/common/ProtectedRoute'
 import Toaster from './components/common/Toaster'
+import useCartStore from './store/cartStore'
 
 const Home = lazy(() => import('./pages/Home'))
 const Login = lazy(() => import('./pages/auth/Login'))
@@ -42,6 +43,14 @@ const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 
 export default function App() {
   const initAuth = useAuthStore(s => s.initAuth)
+    const userId = useAuthStore(s => s.user?.id ?? null)
+  const authLoading = useAuthStore(s => s.loading)
+  const switchCartOwner = useCartStore(s => s.switchOwner)
+
+  // Whenever the account changes (login, logout, switching users), load that account's cart
+  useEffect(() => {
+    if (!authLoading) switchCartOwner(userId)
+  }, [userId, authLoading])
 
   useEffect(() => {
     const unsubscribe = initAuth()
