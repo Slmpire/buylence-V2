@@ -1,0 +1,22 @@
+.global-loader {
+  position: fixed; top: 0; left: 0; width: 100%; height: 3px;
+  z-index: 99999; overflow: hidden; background: rgba(190, 107, 26, 0.15);
+  pointer-events: none;
+}
+.global-loader::after {
+  content: ''; position: absolute; top: 0; height: 100%; width: 40%;
+  background: #BE6B1A; border-radius: 2px;
+  animation: bl-slide 1s ease-in-out infinite;
+}
+@keyframes bl-slide { from { left: -40%; } to { left: 100%; } }
+
+.bl-spinner {
+  display: inline-block; border: 2px solid currentColor; border-radius: 50%;
+  animation: bl-spin 0.7s linear infinite; vertical-align: middle; flex-shrink: 0;
+}
+@keyframes bl-spin { to { transform: rotate(360deg); } }
+
+.bl-page-loader {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; color: #9C9488; font-size: 13px; font-family: Inter, sans-serif;
+}
