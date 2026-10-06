@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
+import { toast } from '../../store/toastStore'
 
 function GoogleLoginButton() {
   const { loginWithGoogle } = useAuthStore()
@@ -14,6 +15,7 @@ function GoogleLoginButton() {
     setLoading(true)
     try {
       const user = await loginWithGoogle()
+            toast.success('Signed in successfully.')
       if (user?.role === 'VENDOR') {
         if (!user.vendor?.onboarded) {
           navigate('/vendor-onboarding')
@@ -96,6 +98,7 @@ export default function Login() {
     setLoading(true)
     try {
       const user = await login({ email: form.email, password: form.password })
+            toast.success('Welcome back! You are now signed in.')
 
       // Redirect based on role returned from our backend
       if (user?.role === 'VENDOR') {
