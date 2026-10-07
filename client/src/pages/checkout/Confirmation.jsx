@@ -1,18 +1,86 @@
-import { useLocation, useNavigate, Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { CheckCircle } from 'lucide-react'
 import { useIsMobile } from '../../hooks/useWindowSize'
+import api from '../../lib/axios'
+import useCartStore from '../../store/cartStore'
+import { PageLoader } from '../../components/common/GlobalLoader'
 
 export default function Confirmation() {
   const { state } = useLocation()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
+  const [params] = useSearchParams()
+  const clearCart = useCartStore(s => s.clearCart)
 
-  const orderId = state?.orderId || `BUY-${Math.random().toString(36).substring(2, 7).toUpperCase()}`
-  const form = state?.form || {}
-  const total = state?.total || 0
-  const subtotal = state?.subtotal || 0
-  const delivery = state?.delivery || 200
-  const items = state?.items || []
+  // Present only when the buyer is returning from Paystack
+  const reference = params.get('reference') || params.get('trxref')
+
+  const [status, setStatus] = useState(reference ? 'verifying' : 'done')
+  const [paidOrder, setPaidOrder] = useState(null)
+  const [verifyError, setVerifyError] = useState('')
+
+  useEffect(() => {
+    if (!reference) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await api.post(`/payments/verify/${reference}`)
+        const orderRes = await api.get(`/orders/${res.data.order.id}`)
+        if (cancelled) return
+        setPaidOrder(orderRes.data.order)
+        clearCart() // payment confirmed, so now it is safe to empty the cart
+        setStatus('done')
+      } catch (err) {
+        if (cancelled) return
+        setVerifyError(err.response?.data?.error || 'We could not confirm your payment yet.')
+        setStatus('failed')
+      }
+    })()
+    return () => { cancelled = true }
+  }, [reference])
+
+  if (status === 'verifying') {
+    return <PageLoader label="Confirming your payment…" minHeight="100vh" />
+  }
+
+  if (status === 'failed') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', gap: 14, padding: 24, textAlign: 'center',
+        fontFamily: 'Inter, sans-serif', backgroundColor: '#F7F4EF' }}>
+        <h1 style={{ fontSize: 24, fontWeight: 900 }}>Payment not confirmed</h1>
+        <p style={{ fontSize: 14, color: '#7F766B', maxWidth: 380 }}>
+          {verifyError} If money left your account, don't worry: it will show on your order once Paystack confirms it.
+        </p>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={() => window.location.reload()}
+            style={{ padding: '12px 20px', borderRadius: 10, border: 'none', backgroundColor: '#1A1A1A',
+              color: 'white', fontWeight: 700, cursor: 'pointer' }}>
+            Check again
+          </button>
+          <Link to="/orders" style={{ padding: '12px 20px', borderRadius: 10, border: '1px solid #E4DDD3',
+            color: '#1A1A1A', fontWeight: 700, textDecoration: 'none' }}>
+            My orders
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  // Data comes from the verified order (Paystack) or from checkout state (Pay on Delivery)
+  const orderId = paidOrder?.orderNumber || state?.orderId || '—'
+  const form = paidOrder
+    ? { hall: paidOrder.deliveryHall, room: paidOrder.deliveryRoom }
+    : (state?.form || {})
+  const total = paidOrder?.total ?? state?.total ?? 0
+  const subtotal = paidOrder?.subtotal ?? state?.subtotal ?? 0
+  const delivery = paidOrder?.deliveryFee ?? state?.delivery ?? 0
+  const items = paidOrder
+    ? paidOrder.items.map(i => ({
+        name: i.name, price: i.price, qty: i.quantity, img: i.product?.images?.[0],
+      }))
+    : (state?.items || [])
 
   return (
     <div style={{

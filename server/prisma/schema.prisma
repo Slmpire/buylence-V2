@@ -41,6 +41,7 @@ enum OrderStatus {
 enum PaymentMethod {
   NOMBA
   PAYSTACK
+  WEMA_TRANSFER
   PAY_ON_DELIVERY
 }
 
@@ -206,6 +207,9 @@ model Order {
 
   items           OrderItem[]
   review          Review?
+
+  virtualAccount String? @unique
+  wemaSessionId  String? @unique
 
   @@map("orders")
 }

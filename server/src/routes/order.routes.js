@@ -106,17 +106,25 @@ router.get('/rider/my-deliveries', authenticate, requireRole('RIDER'), asyncHand
 router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(async (req, res) => {
   const {
     vendorId, items, deliveryHall, deliveryRoom,
-    recipientName, recipientPhone, paymentMethod, paystackRef,
+    recipientName, recipientPhone, paymentMethod,
   } = req.body
 
   if (!vendorId || !items?.length || !deliveryHall || !recipientName || !recipientPhone || !paymentMethod) {
     return res.status(400).json({ error: 'vendorId, items, deliveryHall, recipientName, recipientPhone, and paymentMethod are required.' })
   }
 
+  if (!['PAYSTACK', 'PAY_ON_DELIVERY'].includes(paymentMethod)) {
+     return res.status(400).json({ error: 'Invalid payment method.' })
+   }
+   if (items.some(i => !Number.isInteger(Number(i.quantity)) || Number(i.quantity) < 1)) {
+     return res.status(400).json({ error: 'Invalid item quantity.' })
+   }
+
+    
   const productIds = items.map(i => i.productId)
-  const products = await prisma.product.findMany({
-    where: { id: { in: productIds }, isActive: true },
-  })
+    const products = await prisma.product.findMany({
+     where: { id: { in: productIds }, isActive: true, vendorId },
+   })
 
   if (products.length !== productIds.length) {
     return res.status(400).json({ error: 'One or more products are unavailable.' })
@@ -151,9 +159,9 @@ router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(asyn
       subtotal,
       deliveryFee,
       total,
-      paymentMethod,
-      paymentStatus: paymentMethod === 'NOMBA' ? 'HELD_IN_ESCROW' : 'PENDING',
-      paystackRef: paystackRef || null,
+         paymentMethod,
+   paymentStatus: 'PENDING', // Paystack orders become HELD_IN_ESCROW only after payment is verified
+   paystackRef: null,
       status: 'PLACED',
       items: { create: orderItems },
     },
@@ -178,9 +186,13 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
   const skip = (Number(page) - 1) * Number(limit)
 
   const where = {
-    buyerId: req.user.id,
-    ...(status && { status }),
-  }
+  vendorId: req.user.vendor.id,
+  OR: [
+    { paymentMethod: 'PAY_ON_DELIVERY' },
+    { paymentStatus: { not: 'PENDING' } },
+  ],
+  ...(status && { status }),
+}
 
   const [orders, total] = await Promise.all([
     prisma.order.findMany({

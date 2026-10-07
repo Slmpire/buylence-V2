@@ -1,54 +1,34 @@
 const axios = require('axios')
 
-const PAYSTACK_BASE = 'https://api.paystack.co'
-
-const paystackHeaders = {
-  Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-  'Content-Type': 'application/json',
-}
-
-/**
- * Initialize a new Paystack transaction
- * Returns { authorization_url, access_code, reference }
- */
-async function initializePayment({ email, amount, reference, metadata }) {
-  const res = await axios.post(
-    `${PAYSTACK_BASE}/transaction/initialize`,
-    { email, amount, reference, metadata },
-    { headers: paystackHeaders }
-  )
-  return res.data.data
-}
-
-/**
- * Verify a Paystack transaction by reference
- * Returns the full transaction object
- */
-async function verifyPayment(reference) {
-  const res = await axios.get(
-    `${PAYSTACK_BASE}/transaction/verify/${reference}`,
-    { headers: paystackHeaders }
-  )
-  return res.data.data
-}
-
-/**
- * Transfer funds to a vendor's bank account (called during escrow release)
- * Requires Paystack Transfer feature to be enabled on your account
- * recipientCode is a Paystack transfer recipient code (created once per vendor)
- */
-async function transferToVendor({ amount, recipientCode, reason, reference }) {
-  const res = await axios.post(
-    `${PAYSTACK_BASE}/transfer`,
-    {
-      source: 'balance',
-      amount,
-      recipient: recipientCode,
-      reason,
-      reference,
+function client() {
+  if (!process.env.PAYSTACK_SECRET_KEY) throw new Error('PAYSTACK_SECRET_KEY is not set in .env')
+  return axios.create({
+    baseURL: 'https://api.paystack.co',
+    timeout: 20000,
+    headers: {
+      Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+      'Content-Type': 'application/json',
     },
-    { headers: paystackHeaders }
-  )
+  })
+}
+
+// amount must be in KOBO (naira x 100)
+async function initializePayment({ email, amount, reference, callback_url, metadata }) {
+  const res = await client().post('/transaction/initialize', {
+    email, amount, reference, callback_url, metadata, currency: 'NGN',
+  })
+  return res.data.data // { authorization_url, access_code, reference }
+}
+
+async function verifyPayment(reference) {
+  const res = await client().get(`/transaction/verify/${encodeURIComponent(reference)}`)
+  return res.data.data // { status, amount, currency, reference, ... }
+}
+
+async function transferToVendor({ amount, recipientCode, reason, reference }) {
+  const res = await client().post('/transfer', {
+    source: 'balance', amount, recipient: recipientCode, reason, reference,
+  })
   return res.data.data
 }
 

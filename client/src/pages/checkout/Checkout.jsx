@@ -1,12 +1,29 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { ShoppingCart, Bell, User, ShieldCheck, AlertCircle, ArrowLeft, ArrowRight } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useNavigate, Link, Navigate } from 'react-router-dom'
+import { ShoppingCart, User, ShieldCheck, AlertCircle, ArrowLeft } from 'lucide-react'
 import useCartStore from '../../store/cartStore'
 import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import api from '../../lib/axios'
 
 const HALLS = ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'Mozambique Hall', 'Angola Hall', 'ETF Hall', 'Awolowo Hall']
+
+const PAYMENT_OPTIONS = [
+  {
+    id: 'PAYSTACK',
+    label: 'Pay with Paystack',
+    desc: 'Card, bank transfer or USSD. Held safely in escrow until you confirm delivery.',
+    badge: 'RECOMMENDED',
+    icon: '💳',
+  },
+  {
+    id: 'PAY_ON_DELIVERY',
+    label: 'Pay on Delivery',
+    desc: 'Cash or transfer when your order arrives at your hall gate.',
+    badge: null,
+    icon: '🏠',
+  },
+]
 
 function Section({ number, title, children }) {
   return (
@@ -89,22 +106,31 @@ export default function Checkout() {
     fullName: user?.fullName || '',
     phone: user?.phone || '',
     hall: '', room: '',
-    paymentMethod: 'NOMBA',
+    paymentMethod: 'PAYSTACK',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [step, setStep] = useState('form')
 
-  const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0)
-  const delivery = 200
-  const total = subtotal + delivery
+  // If the buyer presses Back from Paystack's page, some browsers restore this
+  // page frozen on the "processing" screen. Reset it.
+  useEffect(() => {
+    const onShow = (e) => {
+      if (e.persisted) {
+        setStep('review')
+        setLoading(false)
+      }
+    }
+    window.addEventListener('pageshow', onShow)
+    return () => window.removeEventListener('pageshow', onShow)
+  }, [])
 
-  const displayItems = items.length > 0 ? items : [
-    { id: 1, name: 'Salad Bowl', tag: 'Qty: 1 · Large', price: 4500, qty: 1 },
-    { id: 2, name: 'Glazed Donut', tag: 'Qty: 2 · Small', price: 1100, qty: 2 },
-  ]
-  const displaySubtotal = items.length > 0 ? subtotal : 6700
-  const displayTotal = items.length > 0 ? total : 6900
+  const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0)
+  // Uses the vendor's real delivery fee when the cart item has it (falls back to 200
+  // for items added before the vendor fee was included). The server calculates the
+  // final charged total.
+  const delivery = items[0]?.vendor?.deliveryFee ?? 200
+  const total = subtotal + delivery
 
   const inp = {
     width: '100%', padding: '11px 14px',
@@ -139,35 +165,28 @@ export default function Checkout() {
     setStep('processing')
     setLoading(true)
     try {
-      // Group items by vendor — take first vendor in cart
       const vendorId = items[0]?.vendorId
       if (!vendorId) throw new Error('Cart items are missing vendor info.')
 
-      // Create the real order in the backend
       const res = await api.post('/orders', {
         vendorId,
-        items: items.map(item => ({
-          productId: item.id,
-          quantity: item.qty,
-        })),
+        items: items.map(item => ({ productId: item.id, quantity: item.qty })),
         deliveryHall: form.hall,
         deliveryRoom: form.room || '',
         recipientName: form.fullName,
         recipientPhone: form.phone,
-        paymentMethod: form.paymentMethod === 'paystack' ? 'NOMBA' : 'PAY_ON_DELIVERY',
+        paymentMethod: form.paymentMethod, // 'PAYSTACK' or 'PAY_ON_DELIVERY'
       })
-
       const order = res.data.order
 
-      // If NOMBA, initialize payment and redirect to NOMBA
-      if (form.paymentMethod === 'NOMBA') {
+      if (form.paymentMethod === 'PAYSTACK') {
         const payRes = await api.post('/payments/initialize', { orderId: order.id })
-        clearCart()
-        window.location.href = payRes.data.checkoutLink
+        // Don't clear the cart yet. It is cleared only after payment is confirmed.
+        window.location.href = payRes.data.authorizationUrl
         return
       }
 
-      // Pay on delivery — go straight to confirmation
+      // Pay on delivery: order is placed, go straight to confirmation
       clearCart()
       navigate('/order-confirmation', {
         state: {
@@ -175,20 +194,20 @@ export default function Checkout() {
           total: order.total,
           subtotal: order.subtotal,
           delivery: order.deliveryFee,
-          items: displayItems,
+          items,
           orderId: order.orderNumber,
-          paymentMethod: form.paymentMethod,
-        }
+          paymentMethod: 'PAY_ON_DELIVERY',
+        },
       })
     } catch (err) {
       console.error(err)
-      const msg = err.response?.data?.error || 'Something went wrong. Please try again.'
-      setError(msg)
+      setError(err.response?.data?.error || err.message || 'Something went wrong. Please try again.')
       setStep('review')
     } finally {
       setLoading(false)
     }
   }
+
   if (step === 'processing') {
     return (
       <div style={{
@@ -209,12 +228,19 @@ export default function Checkout() {
             Processing your order...
           </h2>
           <p style={{ fontSize: 14, color: '#9C9488' }}>
-            Securing your payment via NOMBA escrow
+            {form.paymentMethod === 'PAYSTACK'
+              ? 'Taking you to Paystack to pay securely...'
+              : 'Placing your order...'}
           </p>
         </div>
       </div>
     )
   }
+
+  // Nothing to check out: send the buyer back to the cart.
+  // (After the processing block on purpose, so clearing the cart for a
+  // Pay on Delivery order doesn't redirect before the confirmation page opens.)
+  if (items.length === 0) return <Navigate to="/cart" replace />
 
   return (
     <div style={{
@@ -404,18 +430,7 @@ export default function Checkout() {
                 {/* Payment */}
                 <Section number="03" title="PAYMENT METHOD">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {[
-                      {
-                        id: 'NOMBA', label: 'Pay with NOMBA',
-                        desc: 'Card, bank transfer or USSD. Held in escrow.',
-                        badge: 'RECOMMENDED', icon: '💳',
-                      },
-                      {
-                        id: 'delivery', label: 'Pay on Delivery',
-                        desc: 'Cash or POS at your hall gate.',
-                        badge: null, icon: '🏠',
-                      },
-                    ].map(pm => (
+                    {PAYMENT_OPTIONS.map(pm => (
                       <div
                         key={pm.id}
                         onClick={() => handleChange('paymentMethod', pm.id)}
@@ -455,7 +470,7 @@ export default function Checkout() {
                     ))}
                   </div>
 
-                  {/* Escrow notice */}
+                  {/* Payment notice */}
                   <div style={{
                     marginTop: 12, backgroundColor: '#F7F4EF',
                     border: '1px solid rgba(0,0,0,0.06)',
@@ -464,7 +479,17 @@ export default function Checkout() {
                   }}>
                     <ShieldCheck size={13} color="#BE864B" style={{ flexShrink: 0, marginTop: 2 }} />
                     <p style={{ fontSize: 11, color: '#7F766B', margin: 0, lineHeight: 1.6 }}>
-                      <strong style={{ color: '#1D1D1D' }}>Buylence Escrow:</strong> Payment released only after both parties confirm delivery.
+                      {form.paymentMethod === 'PAYSTACK' ? (
+                        <>
+                          <strong style={{ color: '#1D1D1D' }}>Buylence Escrow:</strong>{' '}
+                          Payment released only after both parties confirm delivery.
+                        </>
+                      ) : (
+                        <>
+                          <strong style={{ color: '#1D1D1D' }}>Pay on Delivery:</strong>{' '}
+                          You pay when your order arrives at your hall. Please have the amount ready.
+                        </>
+                      )}
                     </p>
                   </div>
                 </Section>
@@ -480,7 +505,7 @@ export default function Checkout() {
                   </div>
                 )}
 
-                {/* On mobile show review button here, else below */}
+                {/* On mobile the review button is in the bottom bar */}
                 {!isMobile && (
                   <button
                     onClick={handleReview}
@@ -511,9 +536,11 @@ export default function Checkout() {
                 <ReviewCard title="PAYMENT METHOD" onEdit={() => setStep('form')}>
                   <ReviewRow
                     label="Method"
-                    value={form.paymentMethod === 'NOMBA' ? '💳 NOMBA' : '🏠 Pay on Delivery'}
+                    value={form.paymentMethod === 'PAYSTACK' ? '💳 Paystack' : '🏠 Pay on Delivery'}
                   />
-                  <ReviewRow label="Escrow" value="✓ Protected" />
+                  {form.paymentMethod === 'PAYSTACK' && (
+                    <ReviewRow label="Escrow" value="✓ Protected" />
+                  )}
                 </ReviewCard>
 
                 {/* How confirmation works */}
@@ -527,10 +554,21 @@ export default function Checkout() {
                     How confirmation works
                   </p>
                   <p style={{ fontSize: 11, color: '#7F766B', margin: 0, lineHeight: 1.8 }}>
-                    1. You place order → payment held in escrow<br />
-                    2. Vendor confirms & dispatches<br />
-                    3. You confirm receipt<br />
-                    4. Funds released to vendor
+                    {form.paymentMethod === 'PAYSTACK' ? (
+                      <>
+                        1. You pay now → money held in escrow<br />
+                        2. Vendor confirms & dispatches<br />
+                        3. You confirm receipt<br />
+                        4. Funds released to vendor
+                      </>
+                    ) : (
+                      <>
+                        1. You place the order<br />
+                        2. Vendor confirms & dispatches<br />
+                        3. You pay when it arrives<br />
+                        4. You confirm receipt
+                      </>
+                    )}
                   </p>
                 </div>
 
@@ -554,16 +592,17 @@ export default function Checkout() {
                       background: 'linear-gradient(90deg, #9A662F 0%, #D09A5F 100%)',
                       color: 'white', border: 'none', borderRadius: 10,
                       fontWeight: 700, fontSize: 15,
-                      cursor: 'pointer', letterSpacing: '0.04em',
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      opacity: loading ? 0.7 : 1,
+                      letterSpacing: '0.04em',
                       display: 'flex', alignItems: 'center',
                       justifyContent: 'center', gap: 8,
                     }}
                   >
                     <ShieldCheck size={18} />
-                    {form.paymentMethod === 'paystack'
+                    {form.paymentMethod === 'PAYSTACK'
                       ? 'PLACE ORDER & PAY SECURELY'
-                      : 'PLACE ORDER (PAY ON DELIVERY)'
-                    }
+                      : 'PLACE ORDER (PAY ON DELIVERY)'}
                   </button>
                 )}
               </>
@@ -583,16 +622,20 @@ export default function Checkout() {
               </h2>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
-                {displayItems.map((item, i) => (
+                {items.map((item, i) => (
                   <div key={item.id || i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{
                       width: 38, height: 38, borderRadius: 7,
                       backgroundColor: '#F0EDE8', flexShrink: 0,
                       overflow: 'hidden',
                     }}>
-                      {item.img && (
-                        <img src={item.img} alt={item.name}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {(item.img || item.images?.[0]) && (
+                        <img
+                          src={item.img || item.images[0]}
+                          alt={item.name}
+                          referrerPolicy="no-referrer"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
                       )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -608,8 +651,8 @@ export default function Checkout() {
 
               <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 12, marginBottom: 12 }}>
                 {[
-                  { label: 'SUBTOTAL', value: `₦${displaySubtotal.toLocaleString()}` },
-                  { label: 'DELIVERY', value: `₦${delivery}` },
+                  { label: 'SUBTOTAL', value: `₦${subtotal.toLocaleString()}` },
+                  { label: 'DELIVERY', value: `₦${delivery.toLocaleString()}` },
                 ].map(r => (
                   <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 7 }}>
                     <span style={{ color: '#9C9488', fontWeight: 700, letterSpacing: '0.06em' }}>{r.label}</span>
@@ -624,7 +667,7 @@ export default function Checkout() {
               }}>
                 <span style={{ fontSize: 13, fontWeight: 800 }}>TOTAL</span>
                 <span style={{ fontSize: 20, fontWeight: 900, color: '#BE864B' }}>
-                  ₦{displayTotal.toLocaleString()}
+                  ₦{total.toLocaleString()}
                 </span>
               </div>
 
@@ -657,7 +700,7 @@ export default function Checkout() {
           <div>
             <p style={{ fontSize: 11, color: '#9C9488', margin: '0 0 2px' }}>Total</p>
             <p style={{ fontSize: 18, fontWeight: 900, color: '#BE864B', margin: 0 }}>
-              ₦{displayTotal.toLocaleString()}
+              ₦{total.toLocaleString()}
             </p>
           </div>
           <button
@@ -668,13 +711,19 @@ export default function Checkout() {
               background: 'linear-gradient(90deg, #9A662F 0%, #D09A5F 100%)',
               color: 'white', border: 'none', borderRadius: 10,
               fontWeight: 700, fontSize: 13,
-              cursor: 'pointer', letterSpacing: '0.04em',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.7 : 1,
+              letterSpacing: '0.04em',
               display: 'flex', alignItems: 'center',
               justifyContent: 'center', gap: 6,
             }}
           >
             <ShieldCheck size={15} />
-            {step === 'form' ? 'REVIEW ORDER' : 'PLACE ORDER'}
+            {step === 'form'
+              ? 'REVIEW ORDER'
+              : form.paymentMethod === 'PAYSTACK'
+                ? 'PAY & PLACE ORDER'
+                : 'PLACE ORDER'}
           </button>
         </div>
       )}
