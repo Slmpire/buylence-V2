@@ -36,10 +36,10 @@ const BROWSE_CATEGORIES = [
 ]
 
 const STUDENT_FAVORITES = [
-  { id: 1, name: 'Ofada Rice (1kg)', tag: 'LOCAL HARVEST', price: 3200, sellers: 7, img: 'https://images.unsplash.com/photo-1536304993881-ff86e0c9b516?w=400&q=80' },
-  { id: 2, name: 'Garri (5kg)', tag: 'IJEBU WHITE', price: 5500, sellers: 11, img: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&q=80' },
-  { id: 3, name: 'Groundnut Oil (75cl)', tag: 'COLD PRESSED', price: 2400, sellers: 4, img: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&q=80' },
-  { id: 4, name: 'Zobo Drink (1L)', tag: 'FRESH DAILY', price: 1000, sellers: 3, img: 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=400&q=80' },
+  { id: 1, name: 'Ofada Rice (1kg)', tag: 'LOCAL HARVEST', price: 3200, sellers: 7, img: 'https://images.unsplash.com/photo-1536304993881-ff86e0c9b516?w=400&q=80', description: 'Premium unpolished Nigerian Ofada rice, carefully sorted and cleaned. Known for its rich aromatic flavor and high nutritional value. Sourced from local Ife farms.' },
+  { id: 2, name: 'Garri (5kg)', tag: 'IJEBU WHITE', price: 5500, sellers: 11, img: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&q=80', description: 'Crispy and finely processed Ijebu white garri. Perfect for soaking with ice-cold water, peanuts, and milk, or making firm, smooth eba.' },
+  { id: 3, name: 'Groundnut Oil (75cl)', tag: 'COLD PRESSED', price: 2400, sellers: 4, img: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&q=80', description: 'Pure, cold-pressed groundnut cooking oil. Clear, cholesterol-free, and ideal for frying, stews, and all everyday student cooking.' },
+  { id: 4, name: 'Zobo Drink (1L)', tag: 'FRESH DAILY', price: 1000, sellers: 3, img: 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=400&q=80', description: 'Freshly brewed Hibiscus (Zobo) drink with natural ginger, pineapple, and clove flavors. Chilled and packaged daily for campus refreshment.' },
 ]
 
 const FEATURES = [
