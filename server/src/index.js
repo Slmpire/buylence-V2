@@ -79,7 +79,7 @@ app.use('/api/orders', require('./routes/order.routes'))
 app.use('/api/riders', require('./routes/rider.routes'))
 app.use('/api/payments', require('./routes/payment.routes'))
 app.use('/api/notifications', require('./routes/notification.routes'))
-
+app.use('/api/wema', require('./routes/wema.routes'))
 // ── 404 fallback ──
 app.use((req, res) => {
   res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` })

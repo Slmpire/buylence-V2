@@ -40,6 +40,7 @@ const RiderDashboard = lazy(() => import('./pages/rider/RiderDashboard'))
 const RiderHistory = lazy(() => import('./pages/rider/RiderHistory'))
 const RiderEarnings = lazy(() => import('./pages/rider/RiderEarnings'))
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
+const PayWithTransfer = lazy(() => import('./pages/checkout/PayWithTransfer'))
 
 export default function App() {
   const initAuth = useAuthStore(s => s.initAuth)
@@ -79,6 +80,7 @@ export default function App() {
           <Route path="/category/snacks" element={<Snacks />} />
           <Route path="/vendors" element={<VendorsList />} />
           <Route path="/vendor/:id" element={<VendorPage />} />
+          <Route path="/pay/:orderId" element={<AuthRoute><PayWithTransfer /></AuthRoute>} />
 
           {/* Auth required — logged in users only */}
           <Route path="/profile" element={<AuthRoute><Profile /></AuthRoute>} />

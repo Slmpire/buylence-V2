@@ -7,6 +7,7 @@ const prisma = require('../utils/prisma')
 const { releaseEscrow } = require('../services/escrow.service')
 const { revertExpiredClaims } = require('../services/claimExpiry.service')
 const { notifyUser } = require('../controllers/notification.controller')
+const { allocateVirtualAccount } = require('../services/wemaVirtualAccount')
 
 function generateOrderNumber() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -113,7 +114,7 @@ router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(asyn
     return res.status(400).json({ error: 'vendorId, items, deliveryHall, recipientName, recipientPhone, and paymentMethod are required.' })
   }
 
-  if (!['PAYSTACK', 'PAY_ON_DELIVERY'].includes(paymentMethod)) {
+  if (!['PAYSTACK', 'WEMA_TRANSFER', 'PAY_ON_DELIVERY'].includes(paymentMethod)) {
      return res.status(400).json({ error: 'Invalid payment method.' })
    }
    if (items.some(i => !Number.isInteger(Number(i.quantity)) || Number(i.quantity) < 1)) {
@@ -147,6 +148,7 @@ router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(asyn
   const deliveryFee = vendor.deliveryFee
   const total = subtotal + deliveryFee
 
+  const virtualAccount = paymentMethod === 'WEMA_TRANSFER' ? await allocateVirtualAccount() : null
   const order = await prisma.order.create({
     data: {
       orderNumber: generateOrderNumber(),
@@ -162,6 +164,7 @@ router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(asyn
          paymentMethod,
    paymentStatus: 'PENDING', // Paystack orders become HELD_IN_ESCROW only after payment is verified
    paystackRef: null,
+   virtualAccount,
       status: 'PLACED',
       items: { create: orderItems },
     },

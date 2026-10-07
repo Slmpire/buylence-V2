@@ -10,11 +10,11 @@ const HALLS = ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'Mozambique Hall', 'Ang
 
 const PAYMENT_OPTIONS = [
   {
-    id: 'PAYSTACK',
-    label: 'Pay with Paystack',
-    desc: 'Card, bank transfer or USSD. Held safely in escrow until you confirm delivery.',
+    id: 'WEMA_TRANSFER',
+    label: 'Bank Transfer (Wema)',
+    desc: 'Pay with a one-time Wema account number made for this order. Held safely in escrow until you confirm delivery.',
     badge: 'RECOMMENDED',
-    icon: '💳',
+    icon: '🏦',
   },
   {
     id: 'PAY_ON_DELIVERY',
@@ -24,6 +24,12 @@ const PAYMENT_OPTIONS = [
     icon: '🏠',
   },
 ]
+
+const METHOD_LABEL = {
+  WEMA_TRANSFER: '🏦 Bank Transfer (Wema)',
+  PAYSTACK: '💳 Paystack',
+  PAY_ON_DELIVERY: '🏠 Pay on Delivery',
+}
 
 function Section({ number, title, children }) {
   return (
@@ -106,14 +112,14 @@ export default function Checkout() {
     fullName: user?.fullName || '',
     phone: user?.phone || '',
     hall: '', room: '',
-    paymentMethod: 'PAYSTACK',
+    paymentMethod: 'WEMA_TRANSFER',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [step, setStep] = useState('form')
 
-  // If the buyer presses Back from Paystack's page, some browsers restore this
-  // page frozen on the "processing" screen. Reset it.
+  // If the buyer comes back with the browser Back button, some browsers restore
+  // this page frozen on the "processing" screen. Reset it.
   useEffect(() => {
     const onShow = (e) => {
       if (e.persisted) {
@@ -131,6 +137,9 @@ export default function Checkout() {
   // final charged total.
   const delivery = items[0]?.vendor?.deliveryFee ?? 200
   const total = subtotal + delivery
+
+  // Bank transfer and card payments are paid upfront and held in escrow
+  const isPrepaid = form.paymentMethod !== 'PAY_ON_DELIVERY'
 
   const inp = {
     width: '100%', padding: '11px 14px',
@@ -175,13 +184,20 @@ export default function Checkout() {
         deliveryRoom: form.room || '',
         recipientName: form.fullName,
         recipientPhone: form.phone,
-        paymentMethod: form.paymentMethod, // 'PAYSTACK' or 'PAY_ON_DELIVERY'
+        paymentMethod: form.paymentMethod, // 'WEMA_TRANSFER' | 'PAYSTACK' | 'PAY_ON_DELIVERY'
       })
       const order = res.data.order
 
+      // Wema bank transfer: show the buyer their account number.
+      // The cart is cleared on the next page, once the transfer is received.
+      if (form.paymentMethod === 'WEMA_TRANSFER') {
+        navigate(`/pay/${order.id}`)
+        return
+      }
+
+      // Paystack (kept in the code, not shown at checkout right now)
       if (form.paymentMethod === 'PAYSTACK') {
         const payRes = await api.post('/payments/initialize', { orderId: order.id })
-        // Don't clear the cart yet. It is cleared only after payment is confirmed.
         window.location.href = payRes.data.authorizationUrl
         return
       }
@@ -228,9 +244,11 @@ export default function Checkout() {
             Processing your order...
           </h2>
           <p style={{ fontSize: 14, color: '#9C9488' }}>
-            {form.paymentMethod === 'PAYSTACK'
-              ? 'Taking you to Paystack to pay securely...'
-              : 'Placing your order...'}
+            {form.paymentMethod === 'WEMA_TRANSFER'
+              ? 'Generating your Wema account number...'
+              : form.paymentMethod === 'PAYSTACK'
+                ? 'Taking you to Paystack...'
+                : 'Placing your order...'}
           </p>
         </div>
       </div>
@@ -479,7 +497,7 @@ export default function Checkout() {
                   }}>
                     <ShieldCheck size={13} color="#BE864B" style={{ flexShrink: 0, marginTop: 2 }} />
                     <p style={{ fontSize: 11, color: '#7F766B', margin: 0, lineHeight: 1.6 }}>
-                      {form.paymentMethod === 'PAYSTACK' ? (
+                      {isPrepaid ? (
                         <>
                           <strong style={{ color: '#1D1D1D' }}>Buylence Escrow:</strong>{' '}
                           Payment released only after both parties confirm delivery.
@@ -534,13 +552,8 @@ export default function Checkout() {
                 </ReviewCard>
 
                 <ReviewCard title="PAYMENT METHOD" onEdit={() => setStep('form')}>
-                  <ReviewRow
-                    label="Method"
-                    value={form.paymentMethod === 'PAYSTACK' ? '💳 Paystack' : '🏠 Pay on Delivery'}
-                  />
-                  {form.paymentMethod === 'PAYSTACK' && (
-                    <ReviewRow label="Escrow" value="✓ Protected" />
-                  )}
+                  <ReviewRow label="Method" value={METHOD_LABEL[form.paymentMethod]} />
+                  {isPrepaid && <ReviewRow label="Escrow" value="✓ Protected" />}
                 </ReviewCard>
 
                 {/* How confirmation works */}
@@ -554,7 +567,7 @@ export default function Checkout() {
                     How confirmation works
                   </p>
                   <p style={{ fontSize: 11, color: '#7F766B', margin: 0, lineHeight: 1.8 }}>
-                    {form.paymentMethod === 'PAYSTACK' ? (
+                    {isPrepaid ? (
                       <>
                         1. You pay now → money held in escrow<br />
                         2. Vendor confirms & dispatches<br />
@@ -600,8 +613,8 @@ export default function Checkout() {
                     }}
                   >
                     <ShieldCheck size={18} />
-                    {form.paymentMethod === 'PAYSTACK'
-                      ? 'PLACE ORDER & PAY SECURELY'
+                    {isPrepaid
+                      ? 'PLACE ORDER & GET ACCOUNT NUMBER'
                       : 'PLACE ORDER (PAY ON DELIVERY)'}
                   </button>
                 )}
@@ -721,8 +734,8 @@ export default function Checkout() {
             <ShieldCheck size={15} />
             {step === 'form'
               ? 'REVIEW ORDER'
-              : form.paymentMethod === 'PAYSTACK'
-                ? 'PAY & PLACE ORDER'
+              : isPrepaid
+                ? 'PLACE ORDER & PAY'
                 : 'PLACE ORDER'}
           </button>
         </div>
