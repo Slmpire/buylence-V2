@@ -127,38 +127,47 @@ export default function VendorPage() {
         }} />
       </div>
 
-      {/* Vendor header */}
+            {/* Vendor header */}
       <div style={{ backgroundColor: 'white', borderBottom: '1px solid rgba(0,0,0,0.07)' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 28px' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '0 16px' : '0 28px' }}>
           <div style={{
-            display: 'flex', alignItems: 'flex-end',
-            gap: 20, paddingBottom: 20,
-            marginTop: -40, position: 'relative', zIndex: 2,
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            alignItems: 'flex-start',
+            gap: isMobile ? 12 : 20,
+            paddingBottom: 20,
           }}>
 
-            {/* Avatar */}
+            {/* Avatar: only this overlaps the banner */}
             <div style={{
-              width: 80, height: 80, borderRadius: 16,
+              width: isMobile ? 72 : 80, height: isMobile ? 72 : 80, borderRadius: 16,
               backgroundColor: '#BE864B',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: 'white', fontSize: 28, fontWeight: 900,
               border: '3px solid white', flexShrink: 0,
               boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+              marginTop: -40, position: 'relative', zIndex: 2,
             }}>
               {avatar}
             </div>
 
             {/* Info */}
-            <div style={{ flex: 1, paddingBottom: 4 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.3px', margin: 0, color: '#1D1D1D' }}>
+            <div style={{ flex: 1, minWidth: 0, paddingTop: isMobile ? 0 : 14 }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', flexWrap: 'wrap',
+                gap: '6px 10px', marginBottom: 6,
+              }}>
+                <h1 style={{
+                  fontSize: isMobile ? 22 : 24, fontWeight: 900, letterSpacing: '-0.3px',
+                  margin: 0, color: '#1D1D1D', lineHeight: 1.2, overflowWrap: 'anywhere',
+                }}>
                   {vendor.storeName}
                 </h1>
                 {vendor.verified && (
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 4,
                     backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0',
-                    borderRadius: 6, padding: '3px 8px',
+                    borderRadius: 6, padding: '3px 8px', flexShrink: 0,
                   }}>
                     <ShieldCheck size={12} color="#16A34A" />
                     <span style={{ fontSize: 10, fontWeight: 800, color: '#16A34A', letterSpacing: '0.06em' }}>
@@ -167,12 +176,14 @@ export default function VendorPage() {
                   </div>
                 )}
               </div>
+
               {vendor.description && (
-                <p style={{ fontSize: 13, color: '#7F766B', margin: '0 0 8px', lineHeight: 1.5 }}>
+                <p style={{ fontSize: 13, color: '#7F766B', margin: '0 0 10px', lineHeight: 1.5 }}>
                   {vendor.description}
                 </p>
               )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px 16px', flexWrap: 'wrap' }}>
                 {vendor.rating > 0 && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <StarRating rating={vendor.rating} />
@@ -191,16 +202,22 @@ export default function VendorPage() {
             </div>
 
             {/* Stats */}
-            <div style={{ display: 'flex', gap: 12, paddingBottom: 4, flexShrink: 0 }}>
+            <div style={{
+              display: 'flex', gap: 12, flexShrink: 0,
+              width: isMobile ? '100%' : 'auto',
+              paddingTop: isMobile ? 0 : 14,
+            }}>
               {[
-                { label: 'DELIVERY', value: `₦${vendor.deliveryFee || 200}` },
+                { label: 'DELIVERY', value: `₦${(vendor.deliveryFee || 200).toLocaleString()}` },
                 { label: 'PRODUCTS', value: products.length },
               ].map(s => (
                 <div key={s.label} style={{
                   backgroundColor: '#F7F4EF',
                   border: '1px solid rgba(0,0,0,0.06)',
                   borderRadius: 10, padding: '10px 16px',
-                  textAlign: 'center', minWidth: 80,
+                  textAlign: 'center',
+                  flex: isMobile ? 1 : 'none',
+                  minWidth: isMobile ? 0 : 80,
                 }}>
                   <p style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: '#9C9488', margin: '0 0 4px' }}>
                     {s.label}
@@ -234,7 +251,7 @@ export default function VendorPage() {
       </div>
 
       {/* Main content */}
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 28px 64px' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '20px 16px 64px' : '32px 28px 64px' }}>
 
         {/* Products tab */}
         {activeTab === 'products' && (

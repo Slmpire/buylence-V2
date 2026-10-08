@@ -1,18 +1,44 @@
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react'
+import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, AlertCircle } from 'lucide-react'
 import Navbar from '../../components/common/Navbar'
 import Footer from '../../components/common/Footer'
+import ProductModal from '../../components/product/ProductModal'
 import useCartStore from '../../store/cartStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
+
+const FALLBACK_IMG =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+      <rect width="100%" height="100%" fill="#F0D9C0"/>
+      <text x="50%" y="50%" font-family="Arial" font-size="14" fill="#BE864B"
+            text-anchor="middle" dominant-baseline="middle">No image</text>
+    </svg>`
+  )
 
 export default function Cart() {
   const { items, removeItem, updateQty, clearCart } = useCartStore()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
 
+  // The product shown in the popup (null = closed)
+  const [viewing, setViewing] = useState(null)
+
   const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0)
-  const delivery = 200
+  // Uses the store's real delivery fee when the cart item has it (falls back to 200
+  // for items added before it was saved). The server calculates the final total.
+  const delivery = items[0]?.vendor?.deliveryFee ?? 200
   const total = subtotal + delivery
+
+  // An order can only contain products from one store
+  const vendorIds = new Set(items.map(i => i.vendorId))
+  const multiVendor = vendorIds.size > 1
+  const canCheckout = !multiVendor
+
+  function goToCheckout() {
+    if (canCheckout) navigate('/checkout')
+  }
 
   if (items.length === 0) {
     return (
@@ -95,6 +121,22 @@ export default function Cart() {
           </button>
         </div>
 
+        {/* One-store-per-order warning */}
+        {multiVendor && (
+          <div style={{
+            display: 'flex', gap: 10, alignItems: 'flex-start',
+            backgroundColor: '#FFF7ED', border: '1px solid #FED7AA',
+            borderRadius: 10, padding: '12px 14px', marginBottom: 16,
+            fontSize: 13, color: '#9A3412', lineHeight: 1.5,
+          }}>
+            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+            <span>
+              Your cart has items from {vendorIds.size} different stores. You can only order from
+              one store at a time, so please remove the items from the other stores to continue.
+            </span>
+          </div>
+        )}
+
         {/* Layout — stack on mobile */}
         <div style={{
           display: 'grid',
@@ -113,25 +155,36 @@ export default function Cart() {
                 gap: isMobile ? 12 : 16,
                 border: '1px solid var(--gray-border)',
               }}>
-                {/* Image */}
+                {/* Image (tap to see details) */}
                 <img
-                  src={item.images?.[0] || item.img || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80'}
+                  src={item.images?.[0] || item.img || FALLBACK_IMG}
+                  alt={item.name}
+                  referrerPolicy="no-referrer"
+                  onClick={() => setViewing(item)}
+                  onError={e => {
+                    e.currentTarget.onerror = null
+                    e.currentTarget.src = FALLBACK_IMG
+                  }}
                   style={{
                     width: isMobile ? 64 : 80,
                     height: isMobile ? 64 : 80,
                     objectFit: 'cover',
                     borderRadius: 'var(--radius-md)',
                     flexShrink: 0,
+                    cursor: 'pointer',
                   }}
                 />
 
-                {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
+                {/* Info (tap to see details) */}
+                <div
+                  onClick={() => setViewing(item)}
+                  style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+                >
                   <p style={{
                     fontSize: 9, color: 'var(--gray-muted)',
                     letterSpacing: '0.06em', marginBottom: 2,
                   }}>
-                    {item.tag}
+                    {item.tag || item.unit || item.vendor?.storeName}
                   </p>
                   <p style={{
                     fontSize: isMobile ? 13 : 15,
@@ -155,6 +208,7 @@ export default function Cart() {
                   {/* Remove */}
                   <button
                     onClick={() => removeItem(item.id)}
+                    aria-label={`Remove ${item.name}`}
                     style={{
                       background: 'none', border: 'none',
                       cursor: 'pointer', color: 'var(--gray-muted)',
@@ -170,6 +224,7 @@ export default function Cart() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <button
                       onClick={() => updateQty(item.id, item.qty - 1)}
+                      aria-label="Decrease quantity"
                       style={{
                         width: 28, height: 28, borderRadius: '50%',
                         border: '1.5px solid var(--gray-border)',
@@ -185,6 +240,7 @@ export default function Cart() {
                     </span>
                     <button
                       onClick={() => updateQty(item.id, item.qty + 1)}
+                      aria-label="Increase quantity"
                       style={{
                         width: 28, height: 28, borderRadius: '50%',
                         border: '1.5px solid var(--gray-border)',
@@ -254,17 +310,20 @@ export default function Cart() {
               fontSize: 12, color: '#166534',
               lineHeight: 1.5, marginBottom: 16,
             }}>
-              🔒 Payment held in escrow — released only after you confirm delivery.
+              🔒 Pay by bank transfer and your payment is held in escrow, released only after you confirm delivery.
             </div>
 
             <button
-              onClick={() => navigate('/checkout')}
+              onClick={goToCheckout}
+              disabled={!canCheckout}
               style={{
                 width: '100%', padding: '14px',
                 backgroundColor: 'var(--charcoal)', color: 'white',
                 border: 'none', borderRadius: 'var(--radius-md)',
                 fontWeight: 700, fontSize: 13,
-                letterSpacing: '0.08em', cursor: 'pointer',
+                letterSpacing: '0.08em',
+                cursor: canCheckout ? 'pointer' : 'not-allowed',
+                opacity: canCheckout ? 1 : 0.5,
                 display: 'flex', alignItems: 'center',
                 justifyContent: 'center', gap: 8,
               }}
@@ -304,14 +363,17 @@ export default function Cart() {
             </p>
           </div>
           <button
-            onClick={() => navigate('/checkout')}
+            onClick={goToCheckout}
+            disabled={!canCheckout}
             style={{
               flex: 1, maxWidth: 200,
               padding: '13px',
               backgroundColor: 'var(--charcoal)', color: 'white',
               border: 'none', borderRadius: 10,
               fontWeight: 700, fontSize: 13,
-              letterSpacing: '0.06em', cursor: 'pointer',
+              letterSpacing: '0.06em',
+              cursor: canCheckout ? 'pointer' : 'not-allowed',
+              opacity: canCheckout ? 1 : 0.5,
               display: 'flex', alignItems: 'center',
               justifyContent: 'center', gap: 6,
             }}
@@ -320,6 +382,13 @@ export default function Cart() {
           </button>
         </div>
       )}
+
+      {/* Product details popup */}
+      <ProductModal
+        product={viewing ? { ...viewing, stock: viewing.stock ?? 50 } : null}
+        isOpen={!!viewing}
+        onClose={() => setViewing(null)}
+      />
 
       <Footer />
     </div>

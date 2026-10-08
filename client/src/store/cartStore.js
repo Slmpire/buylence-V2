@@ -94,6 +94,11 @@ const useCartStore = create((set, get) => ({
         unit: product.unit,
         vendorId: product.vendorId,
         vendor: product.vendor,
+        description: product.description,
+        stock: product.stock,
+        comparePrice: product.comparePrice,
+        availableHalls: product.availableHalls,
+        category: product.category,
         qty: count,
       }
       set({ items: [...get().items, item] })

@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Package, DollarSign,
   Truck, Settings, Bell, User,
-  Search, Menu, X, ChevronRight,
+  Search, Menu, X, ChevronRight, LogOut, Store, ArrowLeftRight,
 } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
@@ -23,12 +23,52 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
   const isMobile = useIsMobile()
   const [search, setSearch] = useState('')
   const [showMobileNav, setShowMobileNav] = useState(false)
+  const [showProfileMenu, setShowProfileMenu] = useState(false)
+  const profileRef = useRef(null)
 
   const activeLabel = NAV.find(n => n.to === location.pathname)?.label || 'Overview'
+  const storeName = user?.vendor?.storeName || user?.storeName || 'My Store'
+  const initial = user?.fullName?.charAt(0)?.toUpperCase() || 'V'
 
-  function handleLogout() {
-    logout()
+  // Close the profile menu when clicking outside it or pressing Escape
+  useEffect(() => {
+    if (!showProfileMenu) return
+    function onPointerDown(e) {
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setShowProfileMenu(false)
+      }
+    }
+    function onKeyDown(e) {
+      if (e.key === 'Escape') setShowProfileMenu(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('touchstart', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('touchstart', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [showProfileMenu])
+
+  async function handleLogout() {
+    setShowProfileMenu(false)
+    setShowMobileNav(false)
+    await logout()
     navigate('/login')
+  }
+
+  function go(path) {
+    setShowProfileMenu(false)
+    setShowMobileNav(false)
+    navigate(path)
+  }
+
+  const menuItemStyle = {
+    width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+    padding: '10px 14px', background: 'none', border: 'none',
+    fontSize: 13, fontWeight: 600, color: '#1D1D1D',
+    cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif',
   }
 
   return (
@@ -40,7 +80,7 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
 
       {/* ── Top bar (always visible) ── */}
       <div style={{
-        height: 52, padding: isMobile ? '0 16px' : '0 0 0 160px',
+        height: 52, padding: isMobile ? '0 16px' : '0 16px 0 160px',
         display: 'flex', alignItems: 'center',
         justifyContent: 'space-between',
         borderBottom: '1px solid rgba(0,0,0,0.06)',
@@ -52,6 +92,7 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button
               onClick={() => setShowMobileNav(s => !s)}
+              aria-label="Toggle menu"
               style={{
                 background: 'none', border: 'none',
                 cursor: 'pointer', color: '#1D1D1D',
@@ -99,17 +140,68 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
         {/* Right icons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <Bell size={17} color="#7F766B" style={{ cursor: 'pointer' }} />
-          <div
-            onClick={handleLogout}
-            style={{
-              width: 32, height: 32, borderRadius: '50%',
-              backgroundColor: '#E4DDD3',
-              display: 'flex', alignItems: 'center',
-              justifyContent: 'center', cursor: 'pointer',
-              color: '#7F766B',
-            }}
-          >
-            <User size={16} />
+
+          {/* Profile menu */}
+          <div ref={profileRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowProfileMenu(s => !s)}
+              aria-label="Account menu"
+              aria-expanded={showProfileMenu}
+              style={{
+                width: 32, height: 32, borderRadius: '50%',
+                backgroundColor: showProfileMenu ? '#BE864B' : '#E4DDD3',
+                display: 'flex', alignItems: 'center',
+                justifyContent: 'center', cursor: 'pointer',
+                color: showProfileMenu ? 'white' : '#7F766B',
+                border: 'none', padding: 0,
+                transition: 'all 0.15s',
+              }}
+            >
+              <User size={16} />
+            </button>
+
+            {showProfileMenu && (
+              <div style={{
+                position: 'absolute', right: 0, top: 40,
+                width: 220, backgroundColor: 'white',
+                border: '1px solid rgba(0,0,0,0.08)',
+                borderRadius: 12,
+                boxShadow: '0 10px 30px rgba(0,0,0,0.12)',
+                overflow: 'hidden', zIndex: 60,
+              }}>
+                {/* Who is signed in */}
+                <div style={{ padding: '14px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                  <p style={{ fontSize: 13, fontWeight: 800, margin: '0 0 2px', color: '#1D1D1D' }}>
+                    {user?.fullName || 'Vendor'}
+                  </p>
+                  <p style={{ fontSize: 11, color: '#9C9488', margin: 0 }}>{storeName}</p>
+                </div>
+
+                <button style={menuItemStyle} onClick={() => go('/profile')}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F7F4EF'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                  <User size={15} color="#9C9488" /> My profile
+                </button>
+                <button style={menuItemStyle} onClick={() => go('/vendor/settings')}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F7F4EF'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                  <Store size={15} color="#9C9488" /> Store settings
+                </button>
+                <button style={menuItemStyle} onClick={() => go('/dashboard')}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F7F4EF'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                  <ArrowLeftRight size={15} color="#9C9488" /> Switch to Buyer
+                </button>
+
+                <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                  <button style={{ ...menuItemStyle, color: '#DC2626' }} onClick={handleLogout}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#FEF2F2'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                    <LogOut size={15} color="#DC2626" /> Sign out
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -164,7 +256,7 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
               })}
             </div>
 
-            {/* Switch to buyer */}
+            {/* Switch to buyer + sign out */}
             <div style={{ padding: '16px' }}>
               <button
                 onClick={() => navigate('/dashboard')}
@@ -175,9 +267,22 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
                   fontSize: 11, fontWeight: 700,
                   letterSpacing: '0.04em', cursor: 'pointer',
                   fontFamily: 'Inter, sans-serif',
+                  marginBottom: 8,
                 }}
               >
                 Switch to Buyer
+              </button>
+              <button
+                onClick={handleLogout}
+                style={{
+                  width: '100%', padding: '8px',
+                  backgroundColor: 'transparent', color: '#DC2626',
+                  border: '1px solid #FECACA', borderRadius: 7,
+                  fontSize: 11, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                }}
+              >
+                Sign Out
               </button>
             </div>
           </div>
@@ -226,14 +331,14 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
                     justifyContent: 'center', color: 'white',
                     fontSize: 14, fontWeight: 800, flexShrink: 0,
                   }}>
-                    {user?.fullName?.charAt(0) || 'V'}
+                    {initial}
                   </div>
                   <div>
                     <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: '#1D1D1D' }}>
                       {user?.fullName || 'Vendor'}
                     </p>
                     <p style={{ fontSize: 10, color: '#9C9488', margin: 0 }}>
-                      {user?.storeName || 'My Store'}
+                      {storeName}
                     </p>
                   </div>
                 </div>

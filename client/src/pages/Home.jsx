@@ -7,6 +7,7 @@ import useCartStore from '../store/cartStore'
 import { useIsMobile, useIsTablet } from '../hooks/useWindowSize'
 import useAuthStore from '../store/authStore'
 import ProductCard from '../components/product/ProductCard'
+import api from '../lib/axios'
 
 const HERO_IMAGES = [
   '/vegetables.jpg',
@@ -59,6 +60,12 @@ export default function Home() {
 
   const cols = isMobile ? 2 : isTablet ? 3 : 4
   const browseCols = isMobile ? 3 : 5
+  const [favorites, setFavorites] = useState([])
+useEffect(() => {
+  api.get('/products?limit=4', { silent: true })
+    .then(res => setFavorites(res.data.products || []))
+    .catch(() => {})
+}, [])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -334,7 +341,7 @@ export default function Home() {
             gridTemplateColumns: `repeat(${cols}, 1fr)`,
             gap: isMobile ? 10 : 18,
           }}>
-            {STUDENT_FAVORITES.map(p => (
+            {(favorites.length ? favorites : STUDENT_FAVORITES).map(p => (
               <ProductCard key={p.id} product={p} />
             ))}
           </div>
