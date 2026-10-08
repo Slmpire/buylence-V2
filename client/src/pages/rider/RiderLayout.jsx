@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Clock, DollarSign, Bell, User, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Clock, DollarSign, Bell, Menu, X } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
+import NotificationDrawer from '../../components/common/NotificationDrawer'
+import useUnreadCount from '../../hooks/useUnreadCount'
 
 const NAV = [
   { label: 'Dashboard', to: '/rider/dashboard', icon: <LayoutDashboard size={15} /> },
@@ -10,12 +12,42 @@ const NAV = [
   { label: 'Earnings', to: '/rider/earnings', icon: <DollarSign size={15} /> },
 ]
 
+function BellButton({ count, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label="Notifications"
+      style={{
+        position: 'relative', background: 'none', border: 'none',
+        cursor: 'pointer', display: 'flex', padding: 2,
+      }}
+    >
+      <Bell size={17} color="#7F766B" />
+      {count > 0 && (
+        <span style={{
+          position: 'absolute', top: -5, right: -7,
+          minWidth: 18, height: 18, padding: '0 4px',
+          boxSizing: 'border-box',
+          borderRadius: 9, backgroundColor: '#DC2626', color: 'white',
+          fontSize: 9, fontWeight: 800,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          border: '2px solid #F7F4EF',
+        }}>
+          {count > 9 ? '9+' : count}
+        </span>
+      )}
+    </button>
+  )
+}
+
 export default function RiderLayout({ children }) {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
   const isMobile = useIsMobile()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const { unreadCount, setUnreadCount } = useUnreadCount()
 
   async function handleLogout() {
     await logout()
@@ -117,7 +149,7 @@ export default function RiderLayout({ children }) {
       )}
 
       {/* ── Main ── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
         {/* Top bar */}
         <div style={{
@@ -135,12 +167,16 @@ export default function RiderLayout({ children }) {
                   BUYLENCE <span style={{ color: '#BE864B', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em' }}>RIDER</span>
                 </p>
               </div>
-              <button
-                onClick={() => setMenuOpen(o => !o)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1A1A1A', display: 'flex' }}
-              >
-                {menuOpen ? <X size={20} /> : <Menu size={20} />}
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <BellButton count={unreadCount} onClick={() => setShowNotifications(true)} />
+                <button
+                  onClick={() => setMenuOpen(o => !o)}
+                  aria-label="Toggle menu"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1A1A1A', display: 'flex' }}
+                >
+                  {menuOpen ? <X size={20} /> : <Menu size={20} />}
+                </button>
+              </div>
             </>
           ) : (
             <>
@@ -148,13 +184,13 @@ export default function RiderLayout({ children }) {
                 Welcome back, <strong style={{ color: '#1A1A1A' }}>{firstName}</strong>
               </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <Bell size={17} color="#7F766B" style={{ cursor: 'pointer' }} />
+                <BellButton count={unreadCount} onClick={() => setShowNotifications(true)} />
                 <div style={{
                   width: 30, height: 30, borderRadius: '50%',
                   backgroundColor: '#BE864B',
                   display: 'flex', alignItems: 'center',
                   justifyContent: 'center', color: 'white',
-                  fontSize: 12, fontWeight: 900, cursor: 'pointer',
+                  fontSize: 12, fontWeight: 900,
                 }}>
                   {firstName.charAt(0)}
                 </div>
@@ -175,6 +211,7 @@ export default function RiderLayout({ children }) {
               <p style={{ fontSize: 16, fontWeight: 900, color: 'white', margin: 0 }}>BUYLENCE RIDER</p>
               <button
                 onClick={() => setMenuOpen(false)}
+                aria-label="Close menu"
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'white', display: 'flex' }}
               >
                 <X size={24} />
@@ -212,10 +249,16 @@ export default function RiderLayout({ children }) {
         )}
 
         {/* Page content */}
-        <div style={{ flex: 1, padding: '28px 24px 64px', overflowY: 'auto' }}>
+        <div style={{ flex: 1, padding: isMobile ? '20px 16px 64px' : '28px 24px 64px', overflowY: 'auto' }}>
           {children}
         </div>
       </div>
+
+      <NotificationDrawer
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        onNotificationChange={setUnreadCount}
+      />
     </div>
   )
 }

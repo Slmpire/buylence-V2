@@ -8,6 +8,7 @@ const { releaseEscrow } = require('../services/escrow.service')
 const { revertExpiredClaims } = require('../services/claimExpiry.service')
 const { notifyUser } = require('../controllers/notification.controller')
 const { allocateVirtualAccount } = require('../services/wemaVirtualAccount')
+const { notifyVendorOfNewOrder, notifyRidersOfPickup } = require('../services/orderNotifications')
 
 function generateOrderNumber() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -179,6 +180,9 @@ router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(asyn
     link: `/orders/${order.id}`,
     category: 'orderUpdates',
   }).catch(() => {})
+    // Pay on Delivery orders are ready to prepare immediately.
+  // Transfer/card orders notify the vendor once payment is confirmed.
+  if (paymentMethod === 'PAY_ON_DELIVERY') notifyVendorOfNewOrder(order.id)
 
   res.status(201).json({ order })
 }))
