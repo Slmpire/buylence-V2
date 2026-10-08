@@ -6,13 +6,14 @@ import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import NotificationDrawer from './NotificationDrawer'
 import { auth } from '../../lib/firebase'
+import useUnreadCount from '../../hooks/useUnreadCount'
 
 export default function Navbar() {
   const [query, setQuery] = useState('')
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
+  const { unreadCount, setUnreadCount } = useUnreadCount()
 
   const navigate = useNavigate()
   const location = useLocation()
@@ -20,29 +21,7 @@ export default function Navbar() {
   const { isLoggedIn, user, logout } = useAuthStore()
   const isMobile = useIsMobile()
 
-  useEffect(() => {
-    if (isLoggedIn) {
-      fetchUnreadCount()
-    } else {
-      setUnreadCount(0)
-    }
-  }, [isLoggedIn])
-
-  async function fetchUnreadCount() {
-    try {
-      const token = await auth.currentUser?.getIdToken()
-      if (!token) return
-      const res = await fetch('/api/notifications', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setUnreadCount(data.unreadCount || 0)
-      }
-    } catch (err) {
-      console.error('Error fetching unread count:', err)
-    }
-  }
+ 
 
   function handleSearch(e) {
     e.preventDefault()
@@ -184,9 +163,31 @@ export default function Navbar() {
               )}
             </Link>
 
-            {/* Bell */}
-            {!isMobile && (
-              <Bell size={20} strokeWidth={1.8} color="#555" style={{ cursor: 'pointer' }} />
+                       {/* Bell */}
+            {!isMobile && isLoggedIn && (
+              <button
+                onClick={() => setShowNotifications(true)}
+                aria-label="Notifications"
+                style={{
+                  position: 'relative', background: 'none', border: 'none',
+                  cursor: 'pointer', display: 'flex', padding: 0,
+                }}
+              >
+                <Bell size={20} strokeWidth={1.8} color="#555" />
+                {unreadCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -6, right: -8,
+                    minWidth: 18, height: 18, padding: '0 4px',
+                    boxSizing: 'border-box',
+                    borderRadius: 9, backgroundColor: '#DC2626', color: 'white',
+                    fontSize: 9, fontWeight: 800,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: '2px solid white',
+                  }}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
             )}
 
             {/* User / Auth */}
@@ -423,6 +424,11 @@ export default function Navbar() {
           )}
         </div>
       )}
+            <NotificationDrawer
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        onNotificationChange={setUnreadCount}
+      />
     </>
   )
 }

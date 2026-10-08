@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { X, CheckCheck, Trash2, Bell, Package, Info, Tag, ExternalLink } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
 import { auth } from '../../lib/firebase'
+import api from '../../lib/axios'
 
 export default function NotificationDrawer({ isOpen, onClose, onNotificationChange }) {
   const [notifications, setNotifications] = useState([])
@@ -17,20 +18,12 @@ export default function NotificationDrawer({ isOpen, onClose, onNotificationChan
     }
   }, [isOpen, isLoggedIn])
 
-  async function fetchNotifications() {
+    async function fetchNotifications() {
     setLoading(true)
     try {
-      const token = await auth.currentUser?.getIdToken()
-      if (!token) return
-
-      const res = await fetch('/api/notifications', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setNotifications(data.notifications || [])
-        if (onNotificationChange) onNotificationChange(data.unreadCount || 0)
-      }
+      const res = await api.get('/notifications', { silent: true })
+      setNotifications(res.data.notifications || [])
+      if (onNotificationChange) onNotificationChange(res.data.unreadCount || 0)
     } catch (err) {
       console.error('Error fetching notifications:', err)
     } finally {
@@ -40,27 +33,15 @@ export default function NotificationDrawer({ isOpen, onClose, onNotificationChan
 
   async function markAsRead(id) {
     try {
-      const token = await auth.currentUser?.getIdToken()
-      if (!token) return
+      const url = id === 'all' ? '/notifications/read-all' : `/notifications/${id}/read`
+      await api.patch(url, null, { silent: true })
 
-      const url = id === 'all' ? '/api/notifications/read-all' : `/api/notifications/${id}/read`
-      const res = await fetch(url, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const next = id === 'all'
+        ? notifications.map(n => ({ ...n, read: true }))
+        : notifications.map(n => (n.id === id ? { ...n, read: true } : n))
 
-      if (res.ok) {
-        if (id === 'all') {
-          setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-          if (onNotificationChange) onNotificationChange(0)
-        } else {
-          setNotifications(prev =>
-            prev.map(n => (n.id === id ? { ...n, read: true } : n))
-          )
-          const newUnread = notifications.filter(n => !n.read && n.id !== id).length
-          if (onNotificationChange) onNotificationChange(newUnread)
-        }
-      }
+      setNotifications(next)
+      if (onNotificationChange) onNotificationChange(next.filter(n => !n.read).length)
     } catch (err) {
       console.error('Error marking notification read:', err)
     }
@@ -69,20 +50,11 @@ export default function NotificationDrawer({ isOpen, onClose, onNotificationChan
   async function deleteNotification(id, e) {
     e.stopPropagation()
     try {
-      const token = await auth.currentUser?.getIdToken()
-      if (!token) return
+      await api.delete(`/notifications/${id}`, { silent: true })
 
-      const res = await fetch(`/api/notifications/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-
-      if (res.ok) {
-        setNotifications(prev => prev.filter(n => n.id !== id))
-        const remaining = notifications.filter(n => n.id !== id)
-        const unreadCount = remaining.filter(n => !n.read).length
-        if (onNotificationChange) onNotificationChange(unreadCount)
-      }
+      const next = notifications.filter(n => n.id !== id)
+      setNotifications(next)
+      if (onNotificationChange) onNotificationChange(next.filter(n => !n.read).length)
     } catch (err) {
       console.error('Error deleting notification:', err)
     }

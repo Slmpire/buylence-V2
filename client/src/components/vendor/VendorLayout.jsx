@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
+import NotificationDrawer from '../common/NotificationDrawer'
+import useUnreadCount from '../../hooks/useUnreadCount'
+
 import {
   LayoutDashboard, Package, DollarSign,
   Truck, Settings, Bell, User,
@@ -25,6 +28,8 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
   const [showMobileNav, setShowMobileNav] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const profileRef = useRef(null)
+    const [showNotifications, setShowNotifications] = useState(false)
+  const { unreadCount, setUnreadCount } = useUnreadCount()
 
   const activeLabel = NAV.find(n => n.to === location.pathname)?.label || 'Overview'
   const storeName = user?.vendor?.storeName || user?.storeName || 'My Store'
@@ -139,7 +144,29 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
 
         {/* Right icons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Bell size={17} color="#7F766B" style={{ cursor: 'pointer' }} />
+                    <button
+            onClick={() => setShowNotifications(true)}
+            aria-label="Notifications"
+            style={{
+              position: 'relative', background: 'none', border: 'none',
+              cursor: 'pointer', display: 'flex', padding: 2,
+            }}
+          >
+            <Bell size={17} color="#7F766B" />
+            {unreadCount > 0 && (
+              <span style={{
+                position: 'absolute', top: -5, right: -7,
+                minWidth: 18, height: 18, padding: '0 4px',
+                boxSizing: 'border-box',
+                borderRadius: 9, backgroundColor: '#DC2626', color: 'white',
+                fontSize: 9, fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '2px solid #F7F4EF',
+              }}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
 
           {/* Profile menu */}
           <div ref={profileRef} style={{ position: 'relative' }}>
@@ -431,6 +458,11 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
           {children}
         </div>
       </div>
+            <NotificationDrawer
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        onNotificationChange={setUnreadCount}
+      />
     </div>
   )
 }
