@@ -1,5 +1,6 @@
 const prisma = require('../utils/prisma')
 const { notifyUser } = require('../controllers/notification.controller')
+const { notifyVendorOfNewOrder } = require('./orderNotifications')
 
 // A NUBAN is 10 digits: your Wema prefix + a random suffix. One per order.
 async function allocateVirtualAccount() {
@@ -59,6 +60,7 @@ async function applyCredit({ accountNumber, amount, sessionId }) {
       link: `/orders/${order.id}`,
       category: 'orderUpdates',
     }).catch(() => {})
+    notifyVendorOfNewOrder(order.id)
   }
   return { ok: true, order }
 }

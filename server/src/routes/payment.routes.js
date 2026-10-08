@@ -6,6 +6,7 @@ const asyncHandler = require('express-async-handler')
 const prisma = require('../utils/prisma')
 const { initializePayment, verifyPayment } = require('../services/paystack.service')
 const { notifyUser } = require('../controllers/notification.controller')
+const { notifyVendorOfNewOrder } = require('../services/orderNotifications')
 
 const toKobo = (naira) => Math.round(Number(naira) * 100)
 const frontendUrl = () => process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173'
@@ -33,6 +34,7 @@ async function applyPayment(order, txn) {
       link: `/orders/${order.id}`,
       category: 'orderUpdates',
     }).catch(() => {})
+    notifyVendorOfNewOrder(order.id)
   }
   return { ok: true }
 }
