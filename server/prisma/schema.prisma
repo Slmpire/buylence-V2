@@ -41,7 +41,7 @@ enum OrderStatus {
 enum PaymentMethod {
   NOMBA
   PAYSTACK
-  WEMA_TRANSFER
+  OPAY
   PAY_ON_DELIVERY
 }
 
@@ -179,6 +179,8 @@ model Order {
   rider           Rider?        @relation("RiderOrders", fields: [riderId], references: [id])
 
   status          OrderStatus   @default(PLACED)
+
+  opayRef String? @unique
 
   deliveryHall    String
   deliveryRoom    String?

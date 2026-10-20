@@ -10,6 +10,7 @@ const { notifyVendorOfNewOrder } = require('../services/orderNotifications')
 
 const toKobo = (naira) => Math.round(Number(naira) * 100)
 const frontendUrl = () => process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173'
+const { createCashierPayment, verifyCallbackSignature } = require('../services/opay.service')
 
 // Checks a Paystack transaction against the order, then moves the order
 // PENDING -> HELD_IN_ESCROW. Safe to call many times (verify + webhook both use it).
@@ -123,6 +124,80 @@ router.post('/webhook', asyncHandler(async (req, res) => {
   }
 
   res.sendStatus(200) // always 200 so Paystack stops retrying
+}))
+
+// POST /api/payments/opay/initialize — start an OPay payment for an existing order
+router.post('/opay/initialize', authenticate, asyncHandler(async (req, res) => {
+  const { orderId } = req.body
+  if (!orderId) return res.status(400).json({ error: 'orderId is required.' })
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      buyer: { select: { id: true, email: true, fullName: true, phone: true } },
+      items: true,
+    },
+  })
+
+  if (!order) return res.status(404).json({ error: 'Order not found.' })
+  if (order.buyerId !== req.user.id) return res.status(403).json({ error: 'Access denied.' })
+  if (order.paymentMethod !== 'OPAY') return res.status(400).json({ error: 'This order is not an OPay order.' })
+  if (order.paymentStatus !== 'PENDING') return res.status(400).json({ error: 'This order has already been paid for.' })
+  if (order.status === 'CANCELLED') return res.status(400).json({ error: 'This order was cancelled.' })
+
+  // OPay rejects a reference it has already seen, so each attempt gets a new one
+  const reference = `${order.orderNumber}-${Date.now().toString(36)}`
+
+  let data
+  try {
+    data = await createCashierPayment({
+      reference,
+      amountKobo: toKobo(order.total),
+      returnUrl: `${frontendUrl()}/order-confirmation?orderId=${order.id}`,
+      cancelUrl: `${frontendUrl()}/checkout`,
+      callbackUrl: `${process.env.BACKEND_URL}/api/payments/opay/callback`,
+      user: {
+        userId: order.buyer.id,
+        userName: order.buyer.fullName,
+        userEmail: order.buyer.email,
+        userMobile: order.buyer.phone || undefined,
+      },
+      productList: order.items.map(i => ({
+        productId: String(i.productId),
+        name: i.name,
+        description: i.name,
+        price: Math.round(Number(i.price) * 100),
+        quantity: i.quantity,
+      })),
+    })
+  } catch (err) {
+    console.error('OPay initialize failed:', err.response?.data || err.message)
+    return res.status(502).json({ error: 'Could not start the payment. Please try again.' })
+  }
+
+  await prisma.order.update({ where: { id: order.id }, data: { opayRef: reference } })
+  res.json({ cashierUrl: data.cashierUrl, reference })
+}))
+
+// POST /api/payments/opay/callback — OPay calls this directly (no login)
+router.post('/opay/callback', asyncHandler(async (req, res) => {
+  if (!verifyCallbackSignature(req.body)) {
+    console.error('OPay callback rejected: bad signature')
+    return res.sendStatus(401)
+  }
+
+  const p = req.body.payload
+  const order = await prisma.order.findFirst({ where: { opayRef: p.reference } })
+
+  if (order && order.paymentStatus === 'PENDING' && p.status === 'SUCCESS') {
+    await applyPayment(order, {
+      status: 'success',
+      currency: p.currency,
+      amount: Number(p.amount), // OPay sends the amount in kobo
+    })
+  }
+
+  res.sendStatus(200)
 }))
 
 module.exports = router
