@@ -16,7 +16,10 @@ export default function Confirmation() {
   // Present only when the buyer is returning from Paystack
   const reference = params.get('reference') || params.get('trxref')
 
-  const [status, setStatus] = useState(reference ? 'verifying' : 'done')
+  const returnedOrderId = params.get('orderId')
+  const isOpayReturn = !reference && !!returnedOrderId
+
+  const [status, setStatus] = useState(reference || isOpayReturn ? 'verifying' : 'done')
   const [paidOrder, setPaidOrder] = useState(null)
   const [verifyError, setVerifyError] = useState('')
 
@@ -40,6 +43,49 @@ export default function Confirmation() {
     return () => { cancelled = true }
   }, [reference])
 
+  // OPay: the result arrives at the server by callback, so check the order every 3s
+  useEffect(() => {
+    if (!isOpayReturn) return
+
+    let stop = false
+    let tries = 0
+    let timeoutId
+
+    async function check() {
+      try {
+        const res = await api.get(`/orders/${returnedOrderId}`, { silent: true })
+        if (stop) return
+
+        if (res.data.order.paymentStatus !== 'PENDING') {
+          setPaidOrder(res.data.order)
+          clearCart()
+          setStatus('done')
+          return
+        }
+      } catch {
+        // Keep polling: the callback or order update may still be in progress.
+      }
+
+      tries += 1
+      if (tries >= 20) {
+        if (!stop) {
+          setVerifyError('We have not received the payment confirmation from OPay yet.')
+          setStatus('failed')
+        }
+        return
+      }
+
+      if (!stop) timeoutId = setTimeout(check, 3000)
+    }
+
+    check()
+
+    return () => {
+      stop = true
+      clearTimeout(timeoutId)
+    }
+  }, [isOpayReturn, returnedOrderId])
+
   if (status === 'verifying') {
     return <PageLoader label="Confirming your payment…" minHeight="100vh" />
   }
@@ -51,7 +97,7 @@ export default function Confirmation() {
         fontFamily: 'Inter, sans-serif', backgroundColor: '#F7F4EF' }}>
         <h1 style={{ fontSize: 24, fontWeight: 900 }}>Payment not confirmed</h1>
         <p style={{ fontSize: 14, color: '#7F766B', maxWidth: 380 }}>
-          {verifyError} If money left your account, don't worry: it will show on your order once Paystack confirms it.
+          {verifyError} If money left your account, don't worry: your order will update once {isOpayReturn ? 'OPay' : 'Paystack'} confirms it.
         </p>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => window.location.reload()}

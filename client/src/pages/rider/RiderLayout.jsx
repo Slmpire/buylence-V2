@@ -5,6 +5,7 @@ import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import NotificationDrawer from '../../components/common/NotificationDrawer'
 import useUnreadCount from '../../hooks/useUnreadCount'
+import Logo from '../../components/common/Logo'
 
 const NAV = [
   { label: 'Dashboard', to: '/rider/dashboard', icon: <LayoutDashboard size={15} /> },
@@ -71,13 +72,7 @@ export default function RiderLayout({ children }) {
         }}>
           {/* Brand */}
           <div style={{ padding: '20px 16px 16px' }}>
-            <Link to="/" style={{
-              fontWeight: 900, fontSize: 14,
-              color: 'white', textDecoration: 'none',
-              letterSpacing: '-0.3px', display: 'block', marginBottom: 2,
-            }}>
-              BUYLENCE
-            </Link>
+           <Logo size="sm" light />
             <p style={{ fontSize: 9, color: '#BE864B', letterSpacing: '0.1em', margin: 0, fontWeight: 700 }}>
               RIDER PORTAL
             </p>
@@ -162,11 +157,10 @@ export default function RiderLayout({ children }) {
         }}>
           {isMobile ? (
             <>
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 900, margin: 0, letterSpacing: '-0.3px' }}>
-                  BUYLENCE <span style={{ color: '#BE864B', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em' }}>RIDER</span>
-                </p>
-              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+  <Logo size="sm" />
+  <span style={{ color: '#BE864B', fontSize: 10, fontWeight: 800, letterSpacing: '0.08em' }}>RIDER</span>
+</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <BellButton count={unreadCount} onClick={() => setShowNotifications(true)} />
                 <button

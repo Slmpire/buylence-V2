@@ -1,27 +1,86 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Search, ShoppingCart, Bell, User, LogOut, Menu, X } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { Search, ShoppingCart, Bell, User, LogOut, Menu, X, LayoutDashboard } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 import useCartStore from '../../store/cartStore'
 import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
-import NotificationDrawer from './NotificationDrawer'
-import { auth } from '../../lib/firebase'
 import useUnreadCount from '../../hooks/useUnreadCount'
+import NotificationDrawer from './NotificationDrawer'
+import Logo from './Logo'
+
+function BellButton({ count, onClick, size = 20 }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label="Notifications"
+      style={{
+        position: 'relative', background: 'none', border: 'none',
+        cursor: 'pointer', display: 'flex', padding: 0,
+      }}
+    >
+      <Bell size={size} strokeWidth={1.8} color="#555" />
+      {count > 0 && (
+        <span style={{
+          position: 'absolute', top: -6, right: -8,
+          minWidth: 18, height: 18, padding: '0 4px',
+          boxSizing: 'border-box',
+          borderRadius: 9, backgroundColor: '#DC2626', color: 'white',
+          fontSize: 9, fontWeight: 800,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          border: '2px solid white',
+        }}>
+          {count > 9 ? '9+' : count}
+        </span>
+      )}
+    </button>
+  )
+}
 
 export default function Navbar() {
   const [query, setQuery] = useState('')
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
-  const { unreadCount, setUnreadCount } = useUnreadCount()
+  const userMenuRef = useRef(null)
 
   const navigate = useNavigate()
   const location = useLocation()
   const cartCount = useCartStore(s => s.items.reduce((t, i) => t + i.qty, 0))
   const { isLoggedIn, user, logout } = useAuthStore()
   const isMobile = useIsMobile()
+  const { unreadCount, setUnreadCount } = useUnreadCount()
 
- 
+  const role = user?.role
+  const isVendor = role === 'VENDOR'
+  const isRider = role === 'RIDER'
+  const isAdmin = role === 'ADMIN'
+
+  // The one-tap shortcut to "my workspace", based on who is signed in
+  const workspace = isVendor
+    ? { label: 'Vendor Dashboard', to: '/vendor/dashboard' }
+    : isRider
+      ? { label: 'Rider Dashboard', to: '/rider/dashboard' }
+      : isAdmin
+        ? { label: 'Admin Dashboard', to: '/admin/dashboard' }
+        : null
+
+  // Close the profile menu when clicking outside it
+  useEffect(() => {
+    if (!showUserMenu) return
+    function onPointerDown(e) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setShowUserMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    return () => document.removeEventListener('mousedown', onPointerDown)
+  }, [showUserMenu])
+
+  // Close menus whenever the page changes
+  useEffect(() => {
+    setShowUserMenu(false)
+    setShowMobileMenu(false)
+  }, [location.pathname, location.search])
 
   function handleSearch(e) {
     e.preventDefault()
@@ -29,20 +88,43 @@ export default function Navbar() {
     setShowMobileMenu(false)
   }
 
-  function handleLogout() {
-    logout()
+  async function handleLogout() {
     setShowUserMenu(false)
     setShowMobileMenu(false)
+    await logout()
     navigate('/')
   }
 
+  const path = location.pathname
+  const onDeals = location.search.includes('deals=1')
+
   const NAV_LINKS = [
-    { label: 'MARKETPLACE', to: '/marketplace' },
-    { label: 'SPECIAL DEALS', to: '/marketplace' },
-    { label: 'VENDORS', to: '/vendors' },
+    {
+      label: 'MARKETPLACE', to: '/marketplace',
+      active: (path.startsWith('/marketplace') && !onDeals) || path.startsWith('/category') || path.startsWith('/search'),
+    },
+    // Becomes its own page when we build seller deals
+    { label: 'SPECIAL DEALS', to: '/marketplace?deals=1', active: path === '/marketplace' && onDeals },
+    { label: 'VENDORS', to: '/vendors', active: path.startsWith('/vendors') || path.startsWith('/vendor/') },
   ]
 
-  const isActive = (to) => location.pathname === to
+  const accountLinks = [
+    { label: 'My Profile', to: '/profile' },
+    { label: 'My Dashboard', to: '/dashboard' },
+    { label: 'My Orders', to: '/orders' },
+    { label: 'Account Settings', to: '/user-settings' },
+  ]
+
+  const roleLinks = isVendor
+    ? [
+        { label: 'Vendor Dashboard', to: '/vendor/dashboard' },
+        { label: 'My Products', to: '/vendor/products' },
+      ]
+    : isRider
+      ? [{ label: 'Rider Dashboard', to: '/rider/dashboard' }]
+      : isAdmin
+        ? [{ label: 'Admin Dashboard', to: '/admin/dashboard' }]
+        : [{ label: 'Become a Vendor', to: '/vendor-onboarding' }]
 
   return (
     <>
@@ -54,57 +136,35 @@ export default function Navbar() {
       }}>
         <div style={{
           maxWidth: 1200, margin: '0 auto',
-          padding: '0 28px', height: 60,
+          padding: isMobile ? '0 16px' : '0 28px', height: 60,
           display: 'flex', alignItems: 'center',
-          gap: 32,
+          gap: isMobile ? 12 : 28,
         }}>
 
-          {/* ── Logo ── */}
-          <Link to="/" style={{
-            fontWeight: 900, fontSize: 17,
-            letterSpacing: '-0.5px', color: '#1A1A1A',
-            textDecoration: 'none', flexShrink: 0,
-          }}>
-            BUYLENCE
-          </Link>
+          {/* ── Logo (always goes home) ── */}
+          <Logo size={isMobile ? 'sm' : 'md'} />
 
           {/* ── Desktop nav links ── */}
           {!isMobile && (
-            <div style={{ display: 'flex', gap: 28, alignItems: 'center', flexShrink: 0 }}>
-              {NAV_LINKS.map(({ label, to }) => {
-                const active = label === 'SHOP'
-                  ? location.pathname === '/marketplace' || location.pathname === '/'
-                  : location.pathname === to
-
-                return (
-                  <Link
-                    key={label}
-                    to={to}
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: active ? '#BE6B1A' : '#888',
-                      textDecoration: 'none',
-                      letterSpacing: '0.04em',
-                      paddingBottom: 4,
-                      borderBottom: active ? '2px solid #BE6B1A' : '2px solid transparent',
-                      transition: 'all 0.15s',
-                    }}
-                    onMouseEnter={e => {
-                      if (!active) {
-                        e.currentTarget.style.color = '#1A1A1A'
-                      }
-                    }}
-                    onMouseLeave={e => {
-                      if (!active) {
-                        e.currentTarget.style.color = '#888'
-                      }
-                    }}
-                  >
-                    {label}
-                  </Link>
-                )
-              })}
+            <div style={{ display: 'flex', gap: 26, alignItems: 'center', flexShrink: 0 }}>
+              {NAV_LINKS.map(({ label, to, active }) => (
+                <Link
+                  key={label}
+                  to={to}
+                  style={{
+                    fontSize: 13, fontWeight: 700,
+                    color: active ? '#BE6B1A' : '#888',
+                    textDecoration: 'none', letterSpacing: '0.04em',
+                    paddingBottom: 4,
+                    borderBottom: active ? '2px solid #BE6B1A' : '2px solid transparent',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#1A1A1A' }}
+                  onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#888' }}
+                >
+                  {label}
+                </Link>
+              ))}
             </div>
           )}
 
@@ -118,14 +178,14 @@ export default function Navbar() {
                 backgroundColor: '#F5F3F0',
                 borderRadius: 999,
                 padding: '10px 18px',
-                maxWidth: 420,
+                maxWidth: 380,
               }}
             >
               <Search size={15} color="#AAAAAA" style={{ flexShrink: 0 }} />
               <input
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Search campus fresh produce..."
+                placeholder="Search products or stores..."
                 style={{
                   border: 'none', outline: 'none',
                   fontSize: 13, color: '#1A1A1A',
@@ -137,16 +197,34 @@ export default function Navbar() {
             </form>
           )}
 
-          {/* ── Right icons ── */}
+          {/* ── Right side ── */}
           <div style={{
             display: 'flex', alignItems: 'center',
-            gap: isMobile ? 14 : 20, marginLeft: 'auto',
+            gap: isMobile ? 16 : 20, marginLeft: 'auto',
             flexShrink: 0,
           }}>
+
+            {/* Workspace shortcut (vendor / rider / admin) */}
+            {!isMobile && isLoggedIn && workspace && (
+              <Link
+                to={workspace.to}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 14px', borderRadius: 999,
+                  border: '1.5px solid #BE6B1A',
+                  color: '#BE6B1A', textDecoration: 'none',
+                  fontSize: 12, fontWeight: 800, letterSpacing: '0.03em',
+                  backgroundColor: path.startsWith(workspace.to.split('/').slice(0, 2).join('/')) ? '#FFF8F2' : 'white',
+                }}
+              >
+                <LayoutDashboard size={14} /> {workspace.label}
+              </Link>
+            )}
 
             {/* Cart */}
             <Link
               to="/cart"
+              aria-label="Cart"
               style={{ position: 'relative', color: '#1A1A1A', display: 'flex', textDecoration: 'none' }}
             >
               <ShoppingCart size={20} strokeWidth={1.8} color="#555" />
@@ -155,7 +233,9 @@ export default function Navbar() {
                   position: 'absolute', top: -5, right: -6,
                   backgroundColor: '#BE6B1A', color: 'white',
                   fontSize: 9, fontWeight: 800,
-                  width: 15, height: 15, borderRadius: '50%',
+                  minWidth: 15, height: 15, padding: '0 3px',
+                  boxSizing: 'border-box',
+                  borderRadius: 8,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   {cartCount}
@@ -163,39 +243,18 @@ export default function Navbar() {
               )}
             </Link>
 
-                       {/* Bell */}
-            {!isMobile && isLoggedIn && (
-              <button
-                onClick={() => setShowNotifications(true)}
-                aria-label="Notifications"
-                style={{
-                  position: 'relative', background: 'none', border: 'none',
-                  cursor: 'pointer', display: 'flex', padding: 0,
-                }}
-              >
-                <Bell size={20} strokeWidth={1.8} color="#555" />
-                {unreadCount > 0 && (
-                  <span style={{
-                    position: 'absolute', top: -6, right: -8,
-                    minWidth: 18, height: 18, padding: '0 4px',
-                    boxSizing: 'border-box',
-                    borderRadius: 9, backgroundColor: '#DC2626', color: 'white',
-                    fontSize: 9, fontWeight: 800,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: '2px solid white',
-                  }}>
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
+            {/* Notifications */}
+            {isLoggedIn && (
+              <BellButton count={unreadCount} onClick={() => setShowNotifications(true)} />
             )}
 
-            {/* User / Auth */}
+            {/* User / Auth (desktop) */}
             {!isMobile && (
               isLoggedIn ? (
-                <div style={{ position: 'relative' }}>
+                <div ref={userMenuRef} style={{ position: 'relative' }}>
                   <button
                     onClick={() => setShowUserMenu(s => !s)}
+                    aria-label="Account menu"
                     style={{
                       background: 'none', border: 'none',
                       cursor: 'pointer', display: 'flex',
@@ -211,11 +270,10 @@ export default function Navbar() {
                       backgroundColor: 'white',
                       border: '1px solid #F0EDE8',
                       borderRadius: 12, padding: '8px 0',
-                      minWidth: 210,
+                      minWidth: 220,
                       boxShadow: '0 8px 32px rgba(0,0,0,0.10)',
                       zIndex: 200,
                     }}>
-                      {/* User info header */}
                       <div style={{ padding: '10px 16px 12px', borderBottom: '1px solid #F0EDE8' }}>
                         <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: '#1A1A1A' }}>
                           {user?.fullName}
@@ -225,18 +283,7 @@ export default function Navbar() {
                         </p>
                       </div>
 
-                      {[
-                        { label: 'My Profile', to: '/profile' },
-                        { label: 'My Dashboard', to: '/dashboard' },
-                        { label: 'My Orders', to: '/orders' },
-                        { label: 'Account Settings', to: '/user-settings' },
-                        ...(user?.role === 'VENDOR' ? [
-                          { label: 'Vendor Dashboard', to: '/vendor/dashboard' },
-                          { label: 'My Products', to: '/vendor/products' },
-                        ] : [
-                          { label: 'Become a Vendor', to: '/vendor-onboarding' },
-                        ]),
-                      ].map(item => (
+                      {[...accountLinks, ...roleLinks].map(item => (
                         <Link
                           key={item.to}
                           to={item.to}
@@ -272,8 +319,16 @@ export default function Navbar() {
                   )}
                 </div>
               ) : (
-                <Link to="/login" style={{ display: 'flex', textDecoration: 'none' }}>
-                  <User size={20} strokeWidth={1.8} color="#555" />
+                <Link
+                  to="/login"
+                  style={{
+                    padding: '8px 18px', borderRadius: 999,
+                    backgroundColor: '#1A1A1A', color: 'white',
+                    fontSize: 12, fontWeight: 700, textDecoration: 'none',
+                    letterSpacing: '0.03em',
+                  }}
+                >
+                  Log in
                 </Link>
               )
             )}
@@ -282,6 +337,7 @@ export default function Navbar() {
             {isMobile && (
               <button
                 onClick={() => setShowMobileMenu(s => !s)}
+                aria-label="Menu"
                 style={{
                   background: 'none', border: 'none',
                   cursor: 'pointer', color: '#1A1A1A',
@@ -306,18 +362,34 @@ export default function Navbar() {
           padding: '20px 20px 40px',
         }}>
 
+          {/* Workspace shortcut first, so vendors reach their dashboard in one tap */}
+          {isLoggedIn && workspace && (
+            <Link
+              to={workspace.to}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                padding: '14px', marginBottom: 18,
+                backgroundColor: '#BE6B1A', color: 'white',
+                borderRadius: 10, textDecoration: 'none',
+                fontSize: 14, fontWeight: 800,
+              }}
+            >
+              <LayoutDashboard size={17} /> {workspace.label}
+            </Link>
+          )}
+
           {/* Mobile search */}
           <form onSubmit={handleSearch} style={{
             display: 'flex', alignItems: 'center', gap: 10,
             backgroundColor: '#F5F3F0',
             borderRadius: 999, padding: '11px 16px',
-            marginBottom: 24,
+            marginBottom: 20,
           }}>
             <Search size={15} color="#AAAAAA" />
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Search campus fresh produce..."
+              placeholder="Search products or stores..."
               style={{
                 flex: 1, border: 'none', outline: 'none',
                 fontSize: 14, backgroundColor: 'transparent',
@@ -330,19 +402,10 @@ export default function Navbar() {
           <div style={{ display: 'flex', flexDirection: 'column', marginBottom: 24 }}>
             {[
               { label: 'Home', to: '/' },
-              { label: 'Shop', to: '/marketplace' },
-              { label: 'Categories', to: '/marketplace' },
+              { label: 'Marketplace', to: '/marketplace' },
+              { label: 'Special Deals', to: '/marketplace?deals=1' },
               { label: 'Vendors', to: '/vendors' },
-              ...(isLoggedIn ? [
-                { label: 'My Orders', to: '/orders' },
-                { label: 'My Profile', to: '/profile' },
-                { label: 'My Dashboard', to: '/dashboard' },
-                { label: 'Account Settings', to: '/user-settings' },
-              ] : []),
-              ...(isLoggedIn && user?.role === 'vendor' ? [
-                { label: 'Vendor Dashboard', to: '/vendor/dashboard' },
-                { label: 'My Products', to: '/vendor/products' },
-              ] : []),
+              ...(isLoggedIn ? [...accountLinks, ...roleLinks] : []),
             ].map(item => (
               <Link
                 key={item.to + item.label}
@@ -424,7 +487,8 @@ export default function Navbar() {
           )}
         </div>
       )}
-            <NotificationDrawer
+
+      <NotificationDrawer
         isOpen={showNotifications}
         onClose={() => setShowNotifications(false)}
         onNotificationChange={setUnreadCount}

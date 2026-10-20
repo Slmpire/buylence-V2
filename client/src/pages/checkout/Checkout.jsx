@@ -5,16 +5,23 @@ import useCartStore from '../../store/cartStore'
 import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import api from '../../lib/axios'
-
+import Logo from '../../components/common/Logo'
 const HALLS = ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'Mozambique Hall', 'Angola Hall', 'ETF Hall', 'Awolowo Hall']
 
 const PAYMENT_OPTIONS = [
   {
-    id: 'WEMA_TRANSFER',
-    label: 'Bank Transfer (Wema)',
-    desc: 'Pay with a one-time Wema account number made for this order. Held safely in escrow until you confirm delivery.',
+    id: 'PAYSTACK',
+    label: 'Pay with Paystack',
+    desc: 'Card, bank transfer or USSD. Held safely in escrow until you confirm delivery.',
     badge: 'RECOMMENDED',
-    icon: '🏦',
+    icon: '💳',
+  },
+  {
+    id: 'OPAY',
+    label: 'Pay with OPay',
+    desc: 'OPay wallet, card or bank transfer. Held safely in escrow until you confirm delivery.',
+    badge: null,
+    icon: '🟢',
   },
   {
     id: 'PAY_ON_DELIVERY',
@@ -26,8 +33,8 @@ const PAYMENT_OPTIONS = [
 ]
 
 const METHOD_LABEL = {
-  WEMA_TRANSFER: '🏦 Bank Transfer (Wema)',
   PAYSTACK: '💳 Paystack',
+  OPAY: '🟢 OPay',
   PAY_ON_DELIVERY: '🏠 Pay on Delivery',
 }
 
@@ -188,17 +195,15 @@ export default function Checkout() {
       })
       const order = res.data.order
 
-      // Wema bank transfer: show the buyer their account number.
-      // The cart is cleared on the next page, once the transfer is received.
-      if (form.paymentMethod === 'WEMA_TRANSFER') {
-        navigate(`/pay/${order.id}`)
+           if (form.paymentMethod === 'PAYSTACK') {
+        const payRes = await api.post('/payments/initialize', { orderId: order.id })
+        window.location.href = payRes.data.authorizationUrl
         return
       }
 
-      // Paystack (kept in the code, not shown at checkout right now)
-      if (form.paymentMethod === 'PAYSTACK') {
-        const payRes = await api.post('/payments/initialize', { orderId: order.id })
-        window.location.href = payRes.data.authorizationUrl
+      if (form.paymentMethod === 'OPAY') {
+        const payRes = await api.post('/payments/opay/initialize', { orderId: order.id })
+        window.location.href = payRes.data.cashierUrl
         return
       }
 
@@ -244,11 +249,11 @@ export default function Checkout() {
             Processing your order...
           </h2>
           <p style={{ fontSize: 14, color: '#9C9488' }}>
-            {form.paymentMethod === 'WEMA_TRANSFER'
-              ? 'Generating your Wema account number...'
-              : form.paymentMethod === 'PAYSTACK'
-                ? 'Taking you to Paystack...'
-                : 'Placing your order...'}
+            {form.paymentMethod === 'PAYSTACK'
+  ? 'Taking you to Paystack...'
+  : form.paymentMethod === 'OPAY'
+    ? 'Taking you to OPay...'
+    : 'Placing your order...'}
           </p>
         </div>
       </div>
@@ -277,12 +282,7 @@ export default function Checkout() {
         backgroundColor: '#F7F4EF',
         position: 'sticky', top: 0, zIndex: 50,
       }}>
-        <Link to="/" style={{
-          fontWeight: 900, fontSize: isMobile ? 14 : 15,
-          color: '#1D1D1D', textDecoration: 'none',
-        }}>
-          BUYLENCE
-        </Link>
+       <Logo size="sm" />
         {!isMobile && (
           <div style={{ display: 'flex', gap: 24 }}>
             {[{ label: 'Shop', to: '/marketplace' }, { label: 'Cart', to: '/cart' }, { label: 'Orders', to: '/orders' }].map(l => (

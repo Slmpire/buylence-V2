@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import NotificationDrawer from '../common/NotificationDrawer'
 import useUnreadCount from '../../hooks/useUnreadCount'
+import Logo from '../common/Logo'
 
 import {
   LayoutDashboard, Package, DollarSign,
@@ -106,6 +107,7 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
             >
               {showMobileNav ? <X size={22} /> : <Menu size={22} />}
             </button>
+                        <Logo size="sm" showText={false} />
             <div>
               <p style={{ fontSize: 9, color: '#BE864B', fontWeight: 700, letterSpacing: '0.08em', margin: 0 }}>
                 VENDOR PORTAL
@@ -214,6 +216,11 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
                   <Store size={15} color="#9C9488" /> Store settings
                 </button>
+                                <button style={menuItemStyle} onClick={() => go('/marketplace')}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F7F4EF'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                  <Store size={15} color="#9C9488" /> Marketplace
+                </button>
                 <button style={menuItemStyle} onClick={() => go('/dashboard')}
                   onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F7F4EF'}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
@@ -246,16 +253,10 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
             position: 'sticky', top: 52,
           }}>
             {/* Brand */}
-            <div style={{ padding: '18px 16px 14px' }}>
-              <Link to="/" style={{
-                fontWeight: 900, fontSize: 13,
-                color: '#1D1D1D', textDecoration: 'none',
-                letterSpacing: '-0.3px', display: 'block', marginBottom: 2,
-              }}>
-                Shop Buylence
-              </Link>
-              <p style={{ fontSize: 9, color: '#BE864B', letterSpacing: '0.08em', margin: 0, fontWeight: 700 }}>
-                DUAL ACCOUNT STATUS
+                        <div style={{ padding: '18px 16px 14px' }}>
+              <Logo size="sm" />
+              <p style={{ fontSize: 9, color: '#BE864B', letterSpacing: '0.08em', margin: '8px 0 0', fontWeight: 700 }}>
+                VENDOR PORTAL
               </p>
             </div>
 
@@ -283,6 +284,19 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
               })}
             </div>
 
+                        <div style={{ padding: '0 16px 4px' }}>
+              <Link
+                to="/marketplace"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '9px 12px', borderRadius: 7,
+                  border: '1px solid rgba(0,0,0,0.08)', backgroundColor: 'white',
+                  textDecoration: 'none', fontSize: 12, fontWeight: 700, color: '#1D1D1D',
+                }}
+              >
+                <Store size={14} color="#BE864B" /> Marketplace
+              </Link>
+            </div>
             {/* Switch to buyer + sign out */}
             <div style={{ padding: '16px' }}>
               <button
@@ -340,12 +354,7 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
             }}>
               {/* Brand */}
               <div style={{ padding: '20px 16px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                <Link to="/" style={{
-                  fontWeight: 900, fontSize: 14, color: '#1D1D1D',
-                  textDecoration: 'none', letterSpacing: '-0.3px', display: 'block', marginBottom: 2,
-                }}>
-                  Shop Buylence
-                </Link>
+               <Logo size="sm" />
                 <p style={{ fontSize: 9, color: '#BE864B', letterSpacing: '0.08em', margin: '0 0 12px', fontWeight: 700 }}>
                   VENDOR PORTAL
                 </p>
@@ -397,6 +406,20 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
                     </Link>
                   )
                 })}
+              </div>
+                            <div style={{ padding: '0 16px 12px' }}>
+                <Link
+                  to="/marketplace"
+                  onClick={() => setShowMobileNav(false)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    padding: '11px', borderRadius: 8,
+                    border: '1px solid rgba(0,0,0,0.08)', backgroundColor: 'white',
+                    textDecoration: 'none', fontSize: 13, fontWeight: 700, color: '#1D1D1D',
+                  }}
+                >
+                  <Store size={15} color="#BE864B" /> Go to Marketplace
+                </Link>
               </div>
 
               {/* Mobile search */}

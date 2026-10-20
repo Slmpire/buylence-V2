@@ -1,4 +1,4 @@
-// ───────────────────────────────────────────────
+```prisma
 // Buylence — Database Schema
 // Campus marketplace + delivery for OAU students
 // ───────────────────────────────────────────────
@@ -53,31 +53,47 @@ enum PaymentStatus {
   FAILED
 }
 
+// ─────────────── LOCATION ───────────────
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  type      String   @default("OTHER") // HALL, HOSTEL, DEPARTMENT, GATE, MARKET, OTHER
+  latitude  Float?
+  longitude Float?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([isActive])
+  @@map("locations")
+}
+
 // ─────────────── USER ───────────────
 
 model User {
-  id          String   @id @default(cuid())
-  firebaseUid String   @unique
-  email       String   @unique
-  fullName    String
-  phone       String?
-  role        Role     @default(BUYER)
+  id                      String   @id @default(cuid())
+  firebaseUid             String   @unique
+  email                   String   @unique
+  fullName                String
+  phone                   String?
+  role                    Role     @default(BUYER)
 
-  hall        String?
-  room        String?
-  matric      String?
-  bio         String?
-  avatarUrl   String?
+  hall                    String?
+  room                    String?
+  matric                  String?
+  bio                     String?
+  avatarUrl               String?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
-  vendor      Vendor?
-  rider       Rider?
-  orders      Order[]  @relation("BuyerOrders")
-  reviews     Review[]
-  notifications Notification[]
-  notificationPreference NotificationPreference?
+  vendor                  Vendor?
+  rider                   Rider?
+  orders                  Order[]  @relation("BuyerOrders")
+  reviews                 Review[]
+  notifications           Notification[]
+  notificationPreference   NotificationPreference?
 
   @@map("users")
 }
@@ -97,6 +113,10 @@ model Vendor {
   logoUrl      String?
   bannerUrl    String?
 
+  // Vendor location coordinates
+  latitude     Float?
+  longitude    Float?
+
   verified     Boolean   @default(false)
   onboarded    Boolean   @default(false)
   deliveryFee  Int       @default(200)
@@ -112,6 +132,7 @@ model Vendor {
   orders       Order[]
   reviews      Review[]
 
+  @@index([latitude, longitude])
   @@map("vendors")
 }
 
@@ -166,55 +187,62 @@ model Product {
 // ─────────────── ORDER ───────────────
 
 model Order {
-  id              String        @id @default(cuid())
-  orderNumber     String        @unique
+  id                String        @id @default(cuid())
+  orderNumber       String        @unique
 
-  buyerId         String
-  buyer           User          @relation("BuyerOrders", fields: [buyerId], references: [id])
+  buyerId           String
+  buyer             User          @relation("BuyerOrders", fields: [buyerId], references: [id])
 
-  vendorId        String
-  vendor          Vendor        @relation(fields: [vendorId], references: [id])
+  vendorId          String
+  vendor            Vendor        @relation(fields: [vendorId], references: [id])
 
-  riderId         String?
-  rider           Rider?        @relation("RiderOrders", fields: [riderId], references: [id])
+  riderId           String?
+  rider             Rider?        @relation("RiderOrders", fields: [riderId], references: [id])
 
-  status          OrderStatus   @default(PLACED)
+  status            OrderStatus   @default(PLACED)
 
-  opayRef String? @unique
+  opayRef           String?       @unique
 
-  deliveryHall    String
-  deliveryRoom    String?
-  recipientName   String
-  recipientPhone  String
+  deliveryHall      String
+  deliveryRoom      String?
+  recipientName     String
+  recipientPhone    String
 
-  subtotal        Int
-  deliveryFee     Int           @default(200)
-  total           Int
+  // Delivery destination coordinates
+  deliveryLatitude  Float?
+  deliveryLongitude Float?
 
-  paymentMethod   PaymentMethod
-  paymentStatus   PaymentStatus @default(PENDING)
-  paystackRef     String?
+  subtotal          Int
+  deliveryFee       Int           @default(200)
+  total             Int
 
-  riderConfirmedAt DateTime?
-  buyerConfirmedAt DateTime?
-  escrowReleasedAt DateTime?
+  paymentMethod     PaymentMethod
+  paymentStatus     PaymentStatus @default(PENDING)
+  paystackRef       String?
 
-  claimedAt        DateTime?
-  claimExpiresAt   DateTime?
-  pickedUpAt       DateTime?
-  readyForPickupAt DateTime?
+  riderConfirmedAt  DateTime?
+  buyerConfirmedAt  DateTime?
+  escrowReleasedAt  DateTime?
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  claimedAt         DateTime?
+  claimExpiresAt    DateTime?
+  pickedUpAt        DateTime?
+  readyForPickupAt  DateTime?
 
-  items           OrderItem[]
-  review          Review?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
-  virtualAccount String? @unique
-  wemaSessionId  String? @unique
+  items             OrderItem[]
+  review            Review?
 
+  virtualAccount    String?       @unique
+  wemaSessionId     String?       @unique
+
+  @@index([deliveryLatitude, deliveryLongitude])
   @@map("orders")
 }
+
+// ─────────────── ORDER ITEM ───────────────
 
 model OrderItem {
   id        String  @id @default(cuid())
@@ -270,6 +298,8 @@ model Notification {
   @@map("notifications")
 }
 
+// ─────────────── NOTIFICATION PREFERENCE ───────────────
+
 model NotificationPreference {
   id              String   @id @default(cuid())
   userId          String   @unique
@@ -285,3 +315,4 @@ model NotificationPreference {
 
   @@map("notification_preferences")
 }
+```
