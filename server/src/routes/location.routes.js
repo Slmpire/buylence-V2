@@ -5,78 +5,133 @@ const authenticate = require('../middleware/auth')
 const requireRole = require('../middleware/requireRole')
 const prisma = require('../utils/prisma')
 
-const TYPES = ['HALL', 'HOSTEL', 'DEPARTMENT', 'GATE', 'MARKET', 'OTHER']
+const TYPES = ['HALL', 'HOSTEL', 'FACULTY', 'GATE', 'LANDMARK', 'OFF_CAMPUS', 'OTHER']
 
-const cleanName = (s) => String(s || '').trim().replace(/\s+/g, ' ')
-const num = (v) => {
-  if (v === null || v === undefined || v === '') return null
-  const n = Number(v)
-  return Number.isFinite(n) ? n : null
+// "" / null / undefined -> null, otherwise a number (NaN if invalid)
+function toNum(v) {
+  if (v === '' || v === null || v === undefined) return null
+  return Number(v)
 }
-const validCoords = (lat, lng) =>
-  lat !== null && lng !== null && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
 
-// GET /api/locations — list active locations (public)
+function validateCoords(latitude, longitude) {
+  if (latitude === null && longitude === null) return null
+  if (latitude === null || longitude === null) return 'Provide both latitude and longitude, or neither.'
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return 'Latitude must be between -90 and 90.'
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return 'Longitude must be between -180 and 180.'
+  return null
+}
+
+// GET /api/locations
+// Public — active locations for pickers (optional ?area= ?type= ?search=)
 router.get('/', asyncHandler(async (req, res) => {
+  const { area, type, search } = req.query
+
   const locations = await prisma.location.findMany({
-    where: { isActive: true },
-    orderBy: [{ type: 'asc' }, { name: 'asc' }],
+    where: {
+      isActive: true,
+      ...(area && { area }),
+      ...(type && { type }),
+      ...(search && { name: { contains: String(search), mode: 'insensitive' } }),
+    },
+    orderBy: [{ area: 'asc' }, { name: 'asc' }],
+  })
+
+  res.json({ locations })
+}))
+
+// GET /api/locations/admin/all
+// Admin — every location, including hidden ones
+router.get('/admin/all', authenticate, requireRole('ADMIN'), asyncHandler(async (req, res) => {
+  const locations = await prisma.location.findMany({
+    orderBy: [{ area: 'asc' }, { name: 'asc' }],
   })
   res.json({ locations })
 }))
 
-// POST /api/locations — any signed-in user can add a place that is missing
-router.post('/', authenticate, asyncHandler(async (req, res) => {
-  const name = cleanName(req.body.name)
-  if (name.length < 2 || name.length > 80) {
-    return res.status(400).json({ error: 'Location name must be 2 to 80 characters.' })
+// POST /api/locations
+// Admin — add a location
+router.post('/', authenticate, requireRole('ADMIN'), asyncHandler(async (req, res) => {
+  const { name, area, type } = req.body
+  const latitude = toNum(req.body.latitude)
+  const longitude = toNum(req.body.longitude)
+
+  if (!name || !String(name).trim()) {
+    return res.status(400).json({ error: 'A location name is required.' })
   }
+  if (type && !TYPES.includes(type)) {
+    return res.status(400).json({ error: `Type must be one of: ${TYPES.join(', ')}.` })
+  }
+  const coordError = validateCoords(latitude, longitude)
+  if (coordError) return res.status(400).json({ error: coordError })
 
-  const type = TYPES.includes(req.body.type) ? req.body.type : 'OTHER'
-  const lat = num(req.body.latitude)
-  const lng = num(req.body.longitude)
-  const coords = validCoords(lat, lng) ? { latitude: lat, longitude: lng } : {}
+  const cleanName = String(name).trim()
+  const existing = await prisma.location.findUnique({ where: { name: cleanName } })
+  if (existing) return res.status(409).json({ error: 'A location with this name already exists.' })
 
-  const existing = await prisma.location.findFirst({
-    where: { name: { equals: name, mode: 'insensitive' } },
+  const location = await prisma.location.create({
+    data: {
+      name: cleanName,
+      area: area?.trim() || 'OAU Campus',
+      type: type || 'HALL',
+      latitude,
+      longitude,
+    },
   })
 
-  if (existing) {
-    if (!existing.isActive) {
-      return res.status(409).json({ error: 'That location is not available.' })
-    }
-    // Fill in missing coordinates, but never overwrite ones that are already set
-    if (existing.latitude === null && coords.latitude !== undefined) {
-      const updated = await prisma.location.update({ where: { id: existing.id }, data: coords })
-      return res.json({ location: updated, existing: true })
-    }
-    return res.json({ location: existing, existing: true })
-  }
-
-  const location = await prisma.location.create({ data: { name, type, ...coords } })
-  res.status(201).json({ location })
+  res.status(201).json({ location, message: 'Location added.' })
 }))
 
-// PATCH /api/locations/:id — admin only: rename, retype, set coordinates, deactivate
+// PATCH /api/locations/:id
+// Admin — edit a location (or hide / show it with isActive)
 router.patch('/:id', authenticate, requireRole('ADMIN'), asyncHandler(async (req, res) => {
-  const { name, type, latitude, longitude, isActive } = req.body
-  const data = {}
+  const existing = await prisma.location.findUnique({ where: { id: req.params.id } })
+  if (!existing) return res.status(404).json({ error: 'Location not found.' })
 
-  if (name !== undefined) data.name = cleanName(name)
-  if (type !== undefined && TYPES.includes(type)) data.type = type
-  if (latitude !== undefined || longitude !== undefined) {
-    const lat = num(latitude)
-    const lng = num(longitude)
-    if (!validCoords(lat, lng)) {
-      return res.status(400).json({ error: 'Provide a valid latitude and longitude.' })
-    }
-    data.latitude = lat
-    data.longitude = lng
+  const { name, area, type, isActive } = req.body
+  const hasCoords = 'latitude' in req.body || 'longitude' in req.body
+  const latitude = hasCoords ? toNum(req.body.latitude) : existing.latitude
+  const longitude = hasCoords ? toNum(req.body.longitude) : existing.longitude
+
+  if (type && !TYPES.includes(type)) {
+    return res.status(400).json({ error: `Type must be one of: ${TYPES.join(', ')}.` })
   }
-  if (isActive !== undefined) data.isActive = !!isActive
+  if (hasCoords) {
+    const coordError = validateCoords(latitude, longitude)
+    if (coordError) return res.status(400).json({ error: coordError })
+  }
 
-  const location = await prisma.location.update({ where: { id: req.params.id }, data })
-  res.json({ location })
+  let cleanName
+  if (name !== undefined) {
+    cleanName = String(name).trim()
+    if (!cleanName) return res.status(400).json({ error: 'A location name is required.' })
+    if (cleanName !== existing.name) {
+      const clash = await prisma.location.findUnique({ where: { name: cleanName } })
+      if (clash) return res.status(409).json({ error: 'A location with this name already exists.' })
+    }
+  }
+
+  const location = await prisma.location.update({
+    where: { id: req.params.id },
+    data: {
+      ...(cleanName !== undefined && { name: cleanName }),
+      ...(area !== undefined && { area: area.trim() || 'OAU Campus' }),
+      ...(type && { type }),
+      ...(isActive !== undefined && { isActive: Boolean(isActive) }),
+      ...(hasCoords && { latitude, longitude }),
+    },
+  })
+
+  res.json({ location, message: 'Location updated.' })
+}))
+
+// DELETE /api/locations/:id
+// Admin — remove a location. Orders and vendors keep the name as plain text, so nothing breaks.
+router.delete('/:id', authenticate, requireRole('ADMIN'), asyncHandler(async (req, res) => {
+  const existing = await prisma.location.findUnique({ where: { id: req.params.id } })
+  if (!existing) return res.status(404).json({ error: 'Location not found.' })
+
+  await prisma.location.delete({ where: { id: req.params.id } })
+  res.json({ message: 'Location removed.' })
 }))
 
 module.exports = router

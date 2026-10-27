@@ -1,7 +1,6 @@
-```prisma
-// Buylence — Database Schema
+
+ // Buylence — Database Schema
 // Campus marketplace + delivery for OAU students
-// ───────────────────────────────────────────────
 
 generator client {
   provider = "prisma-client-js"
@@ -58,7 +57,8 @@ enum PaymentStatus {
 model Location {
   id        String   @id @default(cuid())
   name      String   @unique
-  type      String   @default("OTHER") // HALL, HOSTEL, DEPARTMENT, GATE, MARKET, OTHER
+  area      String   @default("OAU Campus")
+  type      String   @default("HALL")
   latitude  Float?
   longitude Float?
   isActive  Boolean  @default(true)
@@ -72,28 +72,28 @@ model Location {
 // ─────────────── USER ───────────────
 
 model User {
-  id                      String   @id @default(cuid())
-  firebaseUid             String   @unique
-  email                   String   @unique
-  fullName                String
-  phone                   String?
-  role                    Role     @default(BUYER)
+  id                    String   @id @default(cuid())
+  firebaseUid           String   @unique
+  email                 String   @unique
+  fullName              String
+  phone                 String?
+  role                  Role     @default(BUYER)
 
-  hall                    String?
-  room                    String?
-  matric                  String?
-  bio                     String?
-  avatarUrl               String?
+  hall                  String?
+  room                  String?
+  matric                String?
+  bio                   String?
+  avatarUrl             String?
 
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
-  vendor                  Vendor?
-  rider                   Rider?
-  orders                  Order[]  @relation("BuyerOrders")
-  reviews                 Review[]
-  notifications           Notification[]
-  notificationPreference   NotificationPreference?
+  vendor                Vendor?
+  rider                 Rider?
+  orders                Order[]  @relation("BuyerOrders")
+  reviews               Review[]
+  notifications         Notification[]
+  notificationPreference NotificationPreference?
 
   @@map("users")
 }
@@ -113,7 +113,6 @@ model Vendor {
   logoUrl      String?
   bannerUrl    String?
 
-  // Vendor location coordinates
   latitude     Float?
   longitude    Float?
 
@@ -137,7 +136,7 @@ model Vendor {
 }
 
 // ─────────────── RIDER ───────────────
-// Fixed team (3-10), manually onboarded by admin — no public signup
+// Fixed team, manually onboarded by admin.
 
 model Rider {
   id              String   @id @default(cuid())
@@ -208,7 +207,6 @@ model Order {
   recipientName     String
   recipientPhone    String
 
-  // Delivery destination coordinates
   deliveryLatitude  Float?
   deliveryLongitude Float?
 
@@ -315,4 +313,3 @@ model NotificationPreference {
 
   @@map("notification_preferences")
 }
-```

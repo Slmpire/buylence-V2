@@ -5,8 +5,7 @@ import useCartStore from '../../store/cartStore'
 import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import api from '../../lib/axios'
-import Logo from '../../components/common/Logo'
-const HALLS = ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'Mozambique Hall', 'Angola Hall', 'ETF Hall', 'Awolowo Hall']
+import LocationPicker from '../../components/common/LocationPicker'
 
 const PAYMENT_OPTIONS = [
   {
@@ -26,7 +25,7 @@ const PAYMENT_OPTIONS = [
   {
     id: 'PAY_ON_DELIVERY',
     label: 'Pay on Delivery',
-    desc: 'Cash or transfer when your order arrives at your hall gate.',
+    desc: 'Cash or transfer when your order arrives at your delivery location.',
     badge: null,
     icon: '🏠',
   },
@@ -118,8 +117,11 @@ export default function Checkout() {
   const [form, setForm] = useState({
     fullName: user?.fullName || '',
     phone: user?.phone || '',
-    hall: '', room: '',
-    paymentMethod: 'WEMA_TRANSFER',
+    hall: user?.hall || '',   // the delivery location name (any place, not just halls)
+    latitude: null,
+    longitude: null,
+    room: '',
+    paymentMethod: 'PAYSTACK',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -140,12 +142,11 @@ export default function Checkout() {
 
   const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0)
   // Uses the vendor's real delivery fee when the cart item has it (falls back to 200
-  // for items added before the vendor fee was included). The server calculates the
-  // final charged total.
+  // for items added before it was saved). The server calculates the final total.
   const delivery = items[0]?.vendor?.deliveryFee ?? 200
   const total = subtotal + delivery
 
-  // Bank transfer and card payments are paid upfront and held in escrow
+  // Card and wallet payments are paid upfront and held in escrow
   const isPrepaid = form.paymentMethod !== 'PAY_ON_DELIVERY'
 
   const inp = {
@@ -168,10 +169,20 @@ export default function Checkout() {
     setError('')
   }
 
+  function handleLocationChange(loc) {
+    setForm(p => ({
+      ...p,
+      hall: loc.name,
+      latitude: loc.latitude ?? null,
+      longitude: loc.longitude ?? null,
+    }))
+    setError('')
+  }
+
   function handleReview() {
     if (!form.fullName) return setError('Please enter your full name.')
     if (!form.phone) return setError('Please enter your WhatsApp number.')
-    if (!form.hall) return setError('Please select your hall.')
+    if (!form.hall.trim()) return setError('Please choose or type your delivery location.')
     setError('')
     setStep('review')
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -187,20 +198,24 @@ export default function Checkout() {
       const res = await api.post('/orders', {
         vendorId,
         items: items.map(item => ({ productId: item.id, quantity: item.qty })),
-        deliveryHall: form.hall,
+        deliveryHall: form.hall.trim(),
+        deliveryLat: form.latitude,
+        deliveryLng: form.longitude,
         deliveryRoom: form.room || '',
         recipientName: form.fullName,
         recipientPhone: form.phone,
-        paymentMethod: form.paymentMethod, // 'WEMA_TRANSFER' | 'PAYSTACK' | 'PAY_ON_DELIVERY'
+        paymentMethod: form.paymentMethod, // 'PAYSTACK' | 'OPAY' | 'PAY_ON_DELIVERY'
       })
       const order = res.data.order
 
-           if (form.paymentMethod === 'PAYSTACK') {
+      // Paystack: go to Paystack's secure page. The cart is cleared once payment is confirmed.
+      if (form.paymentMethod === 'PAYSTACK') {
         const payRes = await api.post('/payments/initialize', { orderId: order.id })
         window.location.href = payRes.data.authorizationUrl
         return
       }
 
+      // OPay: go to OPay's secure page. The cart is cleared once payment is confirmed.
       if (form.paymentMethod === 'OPAY') {
         const payRes = await api.post('/payments/opay/initialize', { orderId: order.id })
         window.location.href = payRes.data.cashierUrl
@@ -250,10 +265,10 @@ export default function Checkout() {
           </h2>
           <p style={{ fontSize: 14, color: '#9C9488' }}>
             {form.paymentMethod === 'PAYSTACK'
-  ? 'Taking you to Paystack...'
-  : form.paymentMethod === 'OPAY'
-    ? 'Taking you to OPay...'
-    : 'Placing your order...'}
+              ? 'Taking you to Paystack...'
+              : form.paymentMethod === 'OPAY'
+                ? 'Taking you to OPay...'
+                : 'Placing your order...'}
           </p>
         </div>
       </div>
@@ -282,7 +297,12 @@ export default function Checkout() {
         backgroundColor: '#F7F4EF',
         position: 'sticky', top: 0, zIndex: 50,
       }}>
-       <Logo size="sm" />
+        <Link to="/" style={{
+          fontWeight: 900, fontSize: isMobile ? 14 : 15,
+          color: '#1D1D1D', textDecoration: 'none',
+        }}>
+          BUYLENCE
+        </Link>
         {!isMobile && (
           <div style={{ display: 'flex', gap: 24 }}>
             {[{ label: 'Shop', to: '/marketplace' }, { label: 'Cart', to: '/cart' }, { label: 'Orders', to: '/orders' }].map(l => (
@@ -417,26 +437,21 @@ export default function Checkout() {
 
                 {/* Delivery */}
                 <Section number="02" title="DELIVERY POINT">
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <LocationPicker
+                      value={form.hall}
+                      onChange={handleLocationChange}
+                      label="DELIVERY LOCATION"
+                      placeholder="Choose where we should deliver..."
+                      inputStyle={inp}
+                      labelStyle={lbl}
+                    />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      <label style={lbl}>SELECT OAU HALL</label>
-                      <select
-                        value={form.hall}
-                        onChange={e => handleChange('hall', e.target.value)}
-                        style={{ ...inp, cursor: 'pointer' }}
-                        onFocus={e => e.target.style.borderColor = '#BE864B'}
-                        onBlur={e => e.target.style.borderColor = '#E4DDD3'}
-                      >
-                        <option value="">Choose your hall...</option>
-                        {HALLS.map(h => <option key={h} value={h}>{h}</option>)}
-                      </select>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      <label style={lbl}>ROOM / BLOCK (OPTIONAL)</label>
+                      <label style={lbl}>ROOM / BLOCK / DIRECTIONS (OPTIONAL)</label>
                       <input
                         type="text" value={form.room}
                         onChange={e => handleChange('room', e.target.value)}
-                        placeholder="e.g. Block A, Room 201"
+                        placeholder="e.g. Block A, Room 201, or 'opposite the cafeteria'"
                         style={inp}
                         onFocus={e => e.target.style.borderColor = '#BE864B'}
                         onBlur={e => e.target.style.borderColor = '#E4DDD3'}
@@ -505,7 +520,7 @@ export default function Checkout() {
                       ) : (
                         <>
                           <strong style={{ color: '#1D1D1D' }}>Pay on Delivery:</strong>{' '}
-                          You pay when your order arrives at your hall. Please have the amount ready.
+                          You pay when your order arrives. Please have the amount ready.
                         </>
                       )}
                     </p>
@@ -547,8 +562,11 @@ export default function Checkout() {
                 </ReviewCard>
 
                 <ReviewCard title="DELIVERY POINT" onEdit={() => setStep('form')}>
-                  <ReviewRow label="Hall" value={form.hall} />
-                  <ReviewRow label="Room" value={form.room || '—'} />
+                  <ReviewRow label="Location" value={form.hall} />
+                  <ReviewRow label="Details" value={form.room || '—'} />
+                  {form.latitude !== null && (
+                    <ReviewRow label="GPS" value="Shared ✓" />
+                  )}
                 </ReviewCard>
 
                 <ReviewCard title="PAYMENT METHOD" onEdit={() => setStep('form')}>
@@ -614,7 +632,7 @@ export default function Checkout() {
                   >
                     <ShieldCheck size={18} />
                     {isPrepaid
-                      ? 'PLACE ORDER & GET ACCOUNT NUMBER'
+                      ? 'PLACE ORDER & PAY SECURELY'
                       : 'PLACE ORDER (PAY ON DELIVERY)'}
                   </button>
                 )}
@@ -735,7 +753,7 @@ export default function Checkout() {
             {step === 'form'
               ? 'REVIEW ORDER'
               : isPrepaid
-                ? 'PLACE ORDER & PAY'
+                ? 'PAY & PLACE ORDER'
                 : 'PLACE ORDER'}
           </button>
         </div>
