@@ -1,6 +1,9 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Search, ShoppingCart, Bell, User, LogOut, Menu, X, LayoutDashboard } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import {
+  Search, ShoppingCart, Bell, User, LogOut, Menu, X,
+  Store, LayoutDashboard, Bike, ShieldCheck,
+} from 'lucide-react'
+import { useState } from 'react'
 import useCartStore from '../../store/cartStore'
 import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
@@ -8,7 +11,21 @@ import useUnreadCount from '../../hooks/useUnreadCount'
 import NotificationDrawer from './NotificationDrawer'
 import Logo from './Logo'
 
-function BellButton({ count, onClick, size = 20 }) {
+// The "go to my area" shortcut depends on who is signed in
+function getPortalLink(user) {
+  switch (user?.role) {
+    case 'VENDOR':
+      return { label: 'Vendor Dashboard', to: '/vendor/dashboard', icon: <LayoutDashboard size={14} /> }
+    case 'RIDER':
+      return { label: 'Rider Portal', to: '/rider/dashboard', icon: <Bike size={14} /> }
+    case 'ADMIN':
+      return { label: 'Admin', to: '/admin/dashboard', icon: <ShieldCheck size={14} /> }
+    default:
+      return { label: 'Sell on Buylence', to: '/vendor-onboarding', icon: <Store size={14} /> }
+  }
+}
+
+function BellButton({ count, onClick }) {
   return (
     <button
       onClick={onClick}
@@ -18,7 +35,7 @@ function BellButton({ count, onClick, size = 20 }) {
         cursor: 'pointer', display: 'flex', padding: 0,
       }}
     >
-      <Bell size={size} strokeWidth={1.8} color="#555" />
+      <Bell size={20} strokeWidth={1.8} color="#555" />
       {count > 0 && (
         <span style={{
           position: 'absolute', top: -6, right: -8,
@@ -41,46 +58,15 @@ export default function Navbar() {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
-  const userMenuRef = useRef(null)
 
   const navigate = useNavigate()
   const location = useLocation()
   const cartCount = useCartStore(s => s.items.reduce((t, i) => t + i.qty, 0))
   const { isLoggedIn, user, logout } = useAuthStore()
-  const isMobile = useIsMobile()
   const { unreadCount, setUnreadCount } = useUnreadCount()
+  const isMobile = useIsMobile()
 
-  const role = user?.role
-  const isVendor = role === 'VENDOR'
-  const isRider = role === 'RIDER'
-  const isAdmin = role === 'ADMIN'
-
-  // The one-tap shortcut to "my workspace", based on who is signed in
-  const workspace = isVendor
-    ? { label: 'Vendor Dashboard', to: '/vendor/dashboard' }
-    : isRider
-      ? { label: 'Rider Dashboard', to: '/rider/dashboard' }
-      : isAdmin
-        ? { label: 'Admin Dashboard', to: '/admin/dashboard' }
-        : null
-
-  // Close the profile menu when clicking outside it
-  useEffect(() => {
-    if (!showUserMenu) return
-    function onPointerDown(e) {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
-        setShowUserMenu(false)
-      }
-    }
-    document.addEventListener('mousedown', onPointerDown)
-    return () => document.removeEventListener('mousedown', onPointerDown)
-  }, [showUserMenu])
-
-  // Close menus whenever the page changes
-  useEffect(() => {
-    setShowUserMenu(false)
-    setShowMobileMenu(false)
-  }, [location.pathname, location.search])
+  const portal = getPortalLink(user)
 
   function handleSearch(e) {
     e.preventDefault()
@@ -95,36 +81,49 @@ export default function Navbar() {
     navigate('/')
   }
 
-  const path = location.pathname
-  const onDeals = location.search.includes('deals=1')
-
+  // "SPECIAL DEALS" points at the marketplace until it gets its own page
   const NAV_LINKS = [
     {
-      label: 'MARKETPLACE', to: '/marketplace',
-      active: (path.startsWith('/marketplace') && !onDeals) || path.startsWith('/category') || path.startsWith('/search'),
+      label: 'MARKETPLACE',
+      to: '/marketplace',
+      active: location.pathname === '/marketplace' || location.pathname.startsWith('/category'),
     },
-    // Becomes its own page when we build seller deals
-    { label: 'SPECIAL DEALS', to: '/marketplace?deals=1', active: path === '/marketplace' && onDeals },
-    { label: 'VENDORS', to: '/vendors', active: path.startsWith('/vendors') || path.startsWith('/vendor/') },
+    { label: 'SPECIAL DEALS', to: '/marketplace', active: location.pathname === '/special-deals' },
+    { label: 'VENDORS', to: '/vendors', active: location.pathname.startsWith('/vendor/') || location.pathname === '/vendors' },
   ]
 
-  const accountLinks = [
+  const userMenuItems = [
     { label: 'My Profile', to: '/profile' },
     { label: 'My Dashboard', to: '/dashboard' },
     { label: 'My Orders', to: '/orders' },
     { label: 'Account Settings', to: '/user-settings' },
+    ...(user?.role === 'VENDOR'
+      ? [
+          { label: 'Vendor Dashboard', to: '/vendor/dashboard' },
+          { label: 'My Products', to: '/vendor/products' },
+        ]
+      : user?.role === 'RIDER'
+        ? [{ label: 'Rider Portal', to: '/rider/dashboard' }]
+        : user?.role === 'ADMIN'
+          ? [{ label: 'Admin Dashboard', to: '/admin/dashboard' }]
+          : [{ label: 'Become a Vendor', to: '/vendor-onboarding' }]),
   ]
 
-  const roleLinks = isVendor
-    ? [
-        { label: 'Vendor Dashboard', to: '/vendor/dashboard' },
-        { label: 'My Products', to: '/vendor/products' },
-      ]
-    : isRider
-      ? [{ label: 'Rider Dashboard', to: '/rider/dashboard' }]
-      : isAdmin
-        ? [{ label: 'Admin Dashboard', to: '/admin/dashboard' }]
-        : [{ label: 'Become a Vendor', to: '/vendor-onboarding' }]
+  const mobileLinks = [
+    { label: 'Home', to: '/' },
+    { label: 'Marketplace', to: '/marketplace' },
+    { label: 'Special Deals', to: '/marketplace' },
+    { label: 'Vendors', to: '/vendors' },
+    { label: portal.label, to: portal.to },
+    ...(isLoggedIn
+      ? [
+          { label: 'My Orders', to: '/orders' },
+          { label: 'My Profile', to: '/profile' },
+          { label: 'My Dashboard', to: '/dashboard' },
+          { label: 'Account Settings', to: '/user-settings' },
+        ]
+      : []),
+  ]
 
   return (
     <>
@@ -142,19 +141,21 @@ export default function Navbar() {
         }}>
 
           {/* ── Logo (always goes home) ── */}
-          <Logo size={isMobile ? 'sm' : 'md'} />
+          <Logo size={isMobile ? 30 : 34} textSize={isMobile ? 15 : 17} />
 
           {/* ── Desktop nav links ── */}
           {!isMobile && (
-            <div style={{ display: 'flex', gap: 26, alignItems: 'center', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexShrink: 0 }}>
               {NAV_LINKS.map(({ label, to, active }) => (
                 <Link
                   key={label}
                   to={to}
                   style={{
-                    fontSize: 13, fontWeight: 700,
+                    fontSize: 13,
+                    fontWeight: 700,
                     color: active ? '#BE6B1A' : '#888',
-                    textDecoration: 'none', letterSpacing: '0.04em',
+                    textDecoration: 'none',
+                    letterSpacing: '0.04em',
                     paddingBottom: 4,
                     borderBottom: active ? '2px solid #BE6B1A' : '2px solid transparent',
                     transition: 'all 0.15s',
@@ -185,7 +186,7 @@ export default function Navbar() {
               <input
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Search products or stores..."
+                placeholder="Search campus fresh produce..."
                 style={{
                   border: 'none', outline: 'none',
                   fontSize: 13, color: '#1A1A1A',
@@ -200,24 +201,32 @@ export default function Navbar() {
           {/* ── Right side ── */}
           <div style={{
             display: 'flex', alignItems: 'center',
-            gap: isMobile ? 16 : 20, marginLeft: 'auto',
+            gap: isMobile ? 14 : 18, marginLeft: 'auto',
             flexShrink: 0,
           }}>
 
-            {/* Workspace shortcut (vendor / rider / admin) */}
-            {!isMobile && isLoggedIn && workspace && (
+            {/* Portal shortcut: Vendor Dashboard / Rider Portal / Admin / Sell */}
+            {!isMobile && (
               <Link
-                to={workspace.to}
+                to={portal.to}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '7px 14px', borderRadius: 999,
+                  padding: '8px 14px', borderRadius: 999,
                   border: '1.5px solid #BE6B1A',
-                  color: '#BE6B1A', textDecoration: 'none',
-                  fontSize: 12, fontWeight: 800, letterSpacing: '0.03em',
-                  backgroundColor: path.startsWith(workspace.to.split('/').slice(0, 2).join('/')) ? '#FFF8F2' : 'white',
+                  color: '#BE6B1A', fontSize: 12, fontWeight: 800,
+                  textDecoration: 'none', letterSpacing: '0.03em',
+                  whiteSpace: 'nowrap', transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.backgroundColor = '#BE6B1A'
+                  e.currentTarget.style.color = 'white'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.backgroundColor = 'transparent'
+                  e.currentTarget.style.color = '#BE6B1A'
                 }}
               >
-                <LayoutDashboard size={14} /> {workspace.label}
+                {portal.icon} {portal.label}
               </Link>
             )}
 
@@ -233,9 +242,7 @@ export default function Navbar() {
                   position: 'absolute', top: -5, right: -6,
                   backgroundColor: '#BE6B1A', color: 'white',
                   fontSize: 9, fontWeight: 800,
-                  minWidth: 15, height: 15, padding: '0 3px',
-                  boxSizing: 'border-box',
-                  borderRadius: 8,
+                  width: 15, height: 15, borderRadius: '50%',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   {cartCount}
@@ -243,7 +250,7 @@ export default function Navbar() {
               )}
             </Link>
 
-            {/* Notifications */}
+            {/* Bell */}
             {isLoggedIn && (
               <BellButton count={unreadCount} onClick={() => setShowNotifications(true)} />
             )}
@@ -251,7 +258,7 @@ export default function Navbar() {
             {/* User / Auth (desktop) */}
             {!isMobile && (
               isLoggedIn ? (
-                <div ref={userMenuRef} style={{ position: 'relative' }}>
+                <div style={{ position: 'relative' }}>
                   <button
                     onClick={() => setShowUserMenu(s => !s)}
                     aria-label="Account menu"
@@ -265,67 +272,74 @@ export default function Navbar() {
                   </button>
 
                   {showUserMenu && (
-                    <div style={{
-                      position: 'absolute', top: 'calc(100% + 12px)', right: 0,
-                      backgroundColor: 'white',
-                      border: '1px solid #F0EDE8',
-                      borderRadius: 12, padding: '8px 0',
-                      minWidth: 220,
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.10)',
-                      zIndex: 200,
-                    }}>
-                      <div style={{ padding: '10px 16px 12px', borderBottom: '1px solid #F0EDE8' }}>
-                        <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: '#1A1A1A' }}>
-                          {user?.fullName}
-                        </p>
-                        <p style={{ fontSize: 11, color: '#9C9488', margin: '2px 0 0' }}>
-                          {user?.email}
-                        </p>
-                      </div>
+                    <>
+                      {/* click-away layer */}
+                      <div
+                        onClick={() => setShowUserMenu(false)}
+                        style={{ position: 'fixed', inset: 0, zIndex: 150 }}
+                      />
+                      <div style={{
+                        position: 'absolute', top: 'calc(100% + 12px)', right: 0,
+                        backgroundColor: 'white',
+                        border: '1px solid #F0EDE8',
+                        borderRadius: 12, padding: '8px 0',
+                        minWidth: 210,
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.10)',
+                        zIndex: 200,
+                      }}>
+                        <div style={{ padding: '10px 16px 12px', borderBottom: '1px solid #F0EDE8' }}>
+                          <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: '#1A1A1A' }}>
+                            {user?.fullName}
+                          </p>
+                          <p style={{ fontSize: 11, color: '#9C9488', margin: '2px 0 0' }}>
+                            {user?.email}
+                          </p>
+                        </div>
 
-                      {[...accountLinks, ...roleLinks].map(item => (
-                        <Link
-                          key={item.to}
-                          to={item.to}
-                          onClick={() => setShowUserMenu(false)}
+                        {userMenuItems.map(item => (
+                          <Link
+                            key={item.to}
+                            to={item.to}
+                            onClick={() => setShowUserMenu(false)}
+                            style={{
+                              display: 'block', padding: '10px 16px',
+                              fontSize: 13, fontWeight: 500,
+                              color: '#1A1A1A', textDecoration: 'none',
+                              transition: 'background 0.1s',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F7F4EF'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                          >
+                            {item.label}
+                          </Link>
+                        ))}
+
+                        <div style={{ borderTop: '1px solid #F0EDE8', margin: '6px 0' }} />
+                        <button
+                          onClick={handleLogout}
                           style={{
-                            display: 'block', padding: '10px 16px',
-                            fontSize: 13, fontWeight: 500,
-                            color: '#1A1A1A', textDecoration: 'none',
-                            transition: 'background 0.1s',
+                            width: '100%', padding: '10px 16px',
+                            background: 'none', border: 'none',
+                            textAlign: 'left', cursor: 'pointer',
+                            fontSize: 13, fontWeight: 500, color: '#E74C3C',
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            fontFamily: 'Inter, sans-serif',
                           }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F7F4EF'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
-                          {item.label}
-                        </Link>
-                      ))}
-
-                      <div style={{ borderTop: '1px solid #F0EDE8', margin: '6px 0' }} />
-                      <button
-                        onClick={handleLogout}
-                        style={{
-                          width: '100%', padding: '10px 16px',
-                          background: 'none', border: 'none',
-                          textAlign: 'left', cursor: 'pointer',
-                          fontSize: 13, fontWeight: 500, color: '#E74C3C',
-                          display: 'flex', alignItems: 'center', gap: 8,
-                          fontFamily: 'Inter, sans-serif',
-                        }}
-                      >
-                        <LogOut size={14} /> Sign out
-                      </button>
-                    </div>
+                          <LogOut size={14} /> Sign out
+                        </button>
+                      </div>
+                    </>
                   )}
                 </div>
               ) : (
                 <Link
                   to="/login"
                   style={{
-                    padding: '8px 18px', borderRadius: 999,
+                    padding: '8px 16px', borderRadius: 999,
                     backgroundColor: '#1A1A1A', color: 'white',
                     fontSize: 12, fontWeight: 700, textDecoration: 'none',
-                    letterSpacing: '0.03em',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   Log in
@@ -337,7 +351,7 @@ export default function Navbar() {
             {isMobile && (
               <button
                 onClick={() => setShowMobileMenu(s => !s)}
-                aria-label="Menu"
+                aria-label="Toggle menu"
                 style={{
                   background: 'none', border: 'none',
                   cursor: 'pointer', color: '#1A1A1A',
@@ -362,34 +376,18 @@ export default function Navbar() {
           padding: '20px 20px 40px',
         }}>
 
-          {/* Workspace shortcut first, so vendors reach their dashboard in one tap */}
-          {isLoggedIn && workspace && (
-            <Link
-              to={workspace.to}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                padding: '14px', marginBottom: 18,
-                backgroundColor: '#BE6B1A', color: 'white',
-                borderRadius: 10, textDecoration: 'none',
-                fontSize: 14, fontWeight: 800,
-              }}
-            >
-              <LayoutDashboard size={17} /> {workspace.label}
-            </Link>
-          )}
-
           {/* Mobile search */}
           <form onSubmit={handleSearch} style={{
             display: 'flex', alignItems: 'center', gap: 10,
             backgroundColor: '#F5F3F0',
             borderRadius: 999, padding: '11px 16px',
-            marginBottom: 20,
+            marginBottom: 24,
           }}>
             <Search size={15} color="#AAAAAA" />
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Search products or stores..."
+              placeholder="Search campus fresh produce..."
               style={{
                 flex: 1, border: 'none', outline: 'none',
                 fontSize: 14, backgroundColor: 'transparent',
@@ -400,13 +398,7 @@ export default function Navbar() {
 
           {/* Mobile nav links */}
           <div style={{ display: 'flex', flexDirection: 'column', marginBottom: 24 }}>
-            {[
-              { label: 'Home', to: '/' },
-              { label: 'Marketplace', to: '/marketplace' },
-              { label: 'Special Deals', to: '/marketplace?deals=1' },
-              { label: 'Vendors', to: '/vendors' },
-              ...(isLoggedIn ? [...accountLinks, ...roleLinks] : []),
-            ].map(item => (
+            {mobileLinks.map(item => (
               <Link
                 key={item.to + item.label}
                 to={item.to}
@@ -414,7 +406,8 @@ export default function Navbar() {
                 style={{
                   padding: '14px 4px',
                   fontSize: 16, fontWeight: 600,
-                  color: '#1A1A1A', textDecoration: 'none',
+                  color: item.label === portal.label ? '#BE6B1A' : '#1A1A1A',
+                  textDecoration: 'none',
                   borderBottom: '1px solid #F0EDE8',
                   display: 'block',
                 }}

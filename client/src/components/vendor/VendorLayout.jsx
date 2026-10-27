@@ -1,16 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import NotificationDrawer from '../common/NotificationDrawer'
-import useUnreadCount from '../../hooks/useUnreadCount'
-import Logo from '../common/Logo'
-
 import {
   LayoutDashboard, Package, DollarSign,
   Truck, Settings, Bell, User,
-  Search, Menu, X, ChevronRight, LogOut, Store, ArrowLeftRight,
+  Search, Menu, X, ChevronRight, LogOut, Store, ArrowLeftRight, ShoppingBag,
 } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
+import useUnreadCount from '../../hooks/useUnreadCount'
+import NotificationDrawer from '../common/NotificationDrawer'
+import Logo from '../common/Logo'
 
 const NAV = [
   { label: 'Overview', to: '/vendor/dashboard', icon: <LayoutDashboard size={15} /> },
@@ -20,6 +19,34 @@ const NAV = [
   { label: 'Settings', to: '/vendor/settings', icon: <Settings size={15} /> },
 ]
 
+function BellButton({ count, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label="Notifications"
+      style={{
+        position: 'relative', background: 'none', border: 'none',
+        cursor: 'pointer', display: 'flex', padding: 2,
+      }}
+    >
+      <Bell size={17} color="#7F766B" />
+      {count > 0 && (
+        <span style={{
+          position: 'absolute', top: -5, right: -7,
+          minWidth: 18, height: 18, padding: '0 4px',
+          boxSizing: 'border-box',
+          borderRadius: 9, backgroundColor: '#DC2626', color: 'white',
+          fontSize: 9, fontWeight: 800,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          border: '2px solid #F7F4EF',
+        }}>
+          {count > 9 ? '9+' : count}
+        </span>
+      )}
+    </button>
+  )
+}
+
 export default function VendorLayout({ children, searchPlaceholder = 'Search...' }) {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
@@ -28,9 +55,9 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
   const [search, setSearch] = useState('')
   const [showMobileNav, setShowMobileNav] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
-  const profileRef = useRef(null)
-    const [showNotifications, setShowNotifications] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
   const { unreadCount, setUnreadCount } = useUnreadCount()
+  const profileRef = useRef(null)
 
   const activeLabel = NAV.find(n => n.to === location.pathname)?.label || 'Overview'
   const storeName = user?.vendor?.storeName || user?.storeName || 'My Store'
@@ -77,6 +104,9 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
     cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif',
   }
 
+  const hoverOn = e => { e.currentTarget.style.backgroundColor = '#F7F4EF' }
+  const hoverOff = e => { e.currentTarget.style.backgroundColor = 'transparent' }
+
   return (
     <div style={{
       minHeight: '100vh', backgroundColor: '#F7F4EF',
@@ -93,7 +123,7 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
         backgroundColor: '#F7F4EF',
         position: 'sticky', top: 0, zIndex: 50,
       }}>
-        {/* Mobile: hamburger + page title */}
+        {/* Mobile: hamburger + logo + page title */}
         {isMobile && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button
@@ -107,7 +137,7 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
             >
               {showMobileNav ? <X size={22} /> : <Menu size={22} />}
             </button>
-                        <Logo size="sm" showText={false} />
+            <Logo size={28} showText={false} />
             <div>
               <p style={{ fontSize: 9, color: '#BE864B', fontWeight: 700, letterSpacing: '0.08em', margin: 0 }}>
                 VENDOR PORTAL
@@ -146,29 +176,20 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
 
         {/* Right icons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <button
-            onClick={() => setShowNotifications(true)}
-            aria-label="Notifications"
-            style={{
-              position: 'relative', background: 'none', border: 'none',
-              cursor: 'pointer', display: 'flex', padding: 2,
-            }}
-          >
-            <Bell size={17} color="#7F766B" />
-            {unreadCount > 0 && (
-              <span style={{
-                position: 'absolute', top: -5, right: -7,
-                minWidth: 18, height: 18, padding: '0 4px',
-                boxSizing: 'border-box',
-                borderRadius: 9, backgroundColor: '#DC2626', color: 'white',
-                fontSize: 9, fontWeight: 800,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                border: '2px solid #F7F4EF',
-              }}>
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </button>
+          {!isMobile && (
+            <Link
+              to="/marketplace"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 12, fontWeight: 700, color: '#7F766B',
+                textDecoration: 'none', padding: '6px 10px',
+              }}
+            >
+              <ShoppingBag size={14} /> Marketplace
+            </Link>
+          )}
+
+          <BellButton count={unreadCount} onClick={() => setShowNotifications(true)} />
 
           {/* Profile menu */}
           <div ref={profileRef} style={{ position: 'relative' }}>
@@ -198,7 +219,6 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
                 boxShadow: '0 10px 30px rgba(0,0,0,0.12)',
                 overflow: 'hidden', zIndex: 60,
               }}>
-                {/* Who is signed in */}
                 <div style={{ padding: '14px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
                   <p style={{ fontSize: 13, fontWeight: 800, margin: '0 0 2px', color: '#1D1D1D' }}>
                     {user?.fullName || 'Vendor'}
@@ -206,31 +226,27 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
                   <p style={{ fontSize: 11, color: '#9C9488', margin: 0 }}>{storeName}</p>
                 </div>
 
+                <button style={menuItemStyle} onClick={() => go('/marketplace')}
+                  onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
+                  <ShoppingBag size={15} color="#9C9488" /> Marketplace
+                </button>
                 <button style={menuItemStyle} onClick={() => go('/profile')}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F7F4EF'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                  onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
                   <User size={15} color="#9C9488" /> My profile
                 </button>
                 <button style={menuItemStyle} onClick={() => go('/vendor/settings')}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F7F4EF'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                  onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
                   <Store size={15} color="#9C9488" /> Store settings
                 </button>
-                                <button style={menuItemStyle} onClick={() => go('/marketplace')}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F7F4EF'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                  <Store size={15} color="#9C9488" /> Marketplace
-                </button>
                 <button style={menuItemStyle} onClick={() => go('/dashboard')}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F7F4EF'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                  onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
                   <ArrowLeftRight size={15} color="#9C9488" /> Switch to Buyer
                 </button>
 
                 <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
                   <button style={{ ...menuItemStyle, color: '#DC2626' }} onClick={handleLogout}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#FEF2F2'}
-                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#FEF2F2' }}
+                    onMouseLeave={hoverOff}>
                     <LogOut size={15} color="#DC2626" /> Sign out
                   </button>
                 </div>
@@ -253,9 +269,11 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
             position: 'sticky', top: 52,
           }}>
             {/* Brand */}
-                        <div style={{ padding: '18px 16px 14px' }}>
-              <Logo size="sm" />
-              <p style={{ fontSize: 9, color: '#BE864B', letterSpacing: '0.08em', margin: '8px 0 0', fontWeight: 700 }}>
+            <div style={{ padding: '18px 16px 14px' }}>
+              <div style={{ marginBottom: 6 }}>
+                <Logo size={28} textSize={14} />
+              </div>
+              <p style={{ fontSize: 9, color: '#BE864B', letterSpacing: '0.08em', margin: 0, fontWeight: 700 }}>
                 VENDOR PORTAL
               </p>
             </div>
@@ -282,21 +300,22 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
                   </Link>
                 )
               })}
-            </div>
 
-                        <div style={{ padding: '0 16px 4px' }}>
+              {/* Marketplace shortcut */}
               <Link
                 to="/marketplace"
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '9px 12px', borderRadius: 7,
-                  border: '1px solid rgba(0,0,0,0.08)', backgroundColor: 'white',
-                  textDecoration: 'none', fontSize: 12, fontWeight: 700, color: '#1D1D1D',
+                  display: 'flex', alignItems: 'center', gap: 9,
+                  padding: '10px 16px', textDecoration: 'none',
+                  borderLeft: '3px solid transparent',
+                  color: '#9C9488', fontSize: 12, fontWeight: 400,
+                  marginTop: 8, borderTop: '1px solid rgba(0,0,0,0.05)',
                 }}
               >
-                <Store size={14} color="#BE864B" /> Marketplace
+                <ShoppingBag size={15} /> Marketplace
               </Link>
             </div>
+
             {/* Switch to buyer + sign out */}
             <div style={{ padding: '16px' }}>
               <button
@@ -347,14 +366,17 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
             {/* Drawer */}
             <div style={{
               position: 'absolute', left: 0, top: 0, bottom: 0,
-              width: 240, backgroundColor: '#F7F4EF',
+              width: 250, backgroundColor: '#F7F4EF',
               display: 'flex', flexDirection: 'column',
               boxShadow: '4px 0 20px rgba(0,0,0,0.1)',
               zIndex: 41,
+              overflowY: 'auto',
             }}>
               {/* Brand */}
               <div style={{ padding: '20px 16px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-               <Logo size="sm" />
+                <div style={{ marginBottom: 6 }}>
+                  <Logo size={30} textSize={15} onClick={() => setShowMobileNav(false)} />
+                </div>
                 <p style={{ fontSize: 9, color: '#BE864B', letterSpacing: '0.08em', margin: '0 0 12px', fontWeight: 700 }}>
                   VENDOR PORTAL
                 </p>
@@ -406,23 +428,24 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
                     </Link>
                   )
                 })}
-              </div>
-                            <div style={{ padding: '0 16px 12px' }}>
+
                 <Link
                   to="/marketplace"
                   onClick={() => setShowMobileNav(false)}
                   style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    padding: '11px', borderRadius: 8,
-                    border: '1px solid rgba(0,0,0,0.08)', backgroundColor: 'white',
-                    textDecoration: 'none', fontSize: 13, fontWeight: 700, color: '#1D1D1D',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '13px 16px', textDecoration: 'none',
+                    borderLeft: '3px solid transparent',
+                    borderTop: '1px solid rgba(0,0,0,0.05)', marginTop: 8,
+                    color: '#7F766B', fontSize: 14, fontWeight: 500,
                   }}
                 >
-                  <Store size={15} color="#BE864B" /> Go to Marketplace
+                  <span style={{ color: '#9C9488', display: 'flex' }}><ShoppingBag size={15} /></span>
+                  Marketplace
                 </Link>
               </div>
 
-              {/* Mobile search */}
+              {/* Mobile search + actions */}
               <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 8,
@@ -481,7 +504,8 @@ export default function VendorLayout({ children, searchPlaceholder = 'Search...'
           {children}
         </div>
       </div>
-            <NotificationDrawer
+
+      <NotificationDrawer
         isOpen={showNotifications}
         onClose={() => setShowNotifications(false)}
         onNotificationChange={setUnreadCount}

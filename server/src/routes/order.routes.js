@@ -9,6 +9,8 @@ const { revertExpiredClaims } = require('../services/claimExpiry.service')
 const { notifyUser } = require('../controllers/notification.controller')
 const { allocateVirtualAccount } = require('../services/wemaVirtualAccount')
 const { notifyVendorOfNewOrder, notifyRidersOfPickup } = require('../services/orderNotifications')
+const toCoord = (v) =>
+  v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v)
 
 function generateOrderNumber() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -122,11 +124,12 @@ router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(asyn
      return res.status(400).json({ error: 'Invalid item quantity.' })
    }
 
-    
-  const productIds = items.map(i => i.productId)
-    const products = await prisma.product.findMany({
-     where: { id: { in: productIds }, isActive: true, vendorId },
-   })
+     // The same product can appear twice with different options (2 sachets + 1 carton)
+  const productIds = [...new Set(items.map(i => i.productId))]
+  const products = await prisma.product.findMany({
+    where: { id: { in: productIds }, isActive: true, vendorId },
+    include: { units: true },
+  })
 
   if (products.length !== productIds.length) {
     return res.status(400).json({ error: 'One or more products are unavailable.' })
@@ -135,15 +138,30 @@ router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(asyn
   const vendor = await prisma.vendor.findUnique({ where: { id: vendorId } })
   if (!vendor) return res.status(404).json({ error: 'Vendor not found.' })
 
-  const orderItems = items.map(item => {
+  const orderItems = []
+  for (const item of items) {
     const product = products.find(p => p.id === item.productId)
-    return {
-      productId: product.id,
-      name: product.name,
-      price: product.price,
-      quantity: Number(item.quantity),
+    const quantity = Number(item.quantity)
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      return res.status(400).json({ error: `Invalid quantity for ${product.name}.` })
     }
-  })
+
+    let price = product.price
+    let unitLabel = product.unit || null
+
+    if (item.unitId) {
+      const unit = product.units.find(u => u.id === item.unitId)
+      if (!unit) {
+        return res.status(400).json({
+          error: `${product.name}: that option is no longer available. Remove it from your cart and add it again.`,
+        })
+      }
+      price = unit.price
+      unitLabel = unit.label
+    }
+
+    orderItems.push({ productId: product.id, name: product.name, price, quantity, unitLabel })
+  }
 
   const subtotal = orderItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
   const deliveryFee = vendor.deliveryFee

@@ -10,11 +10,16 @@ export default function useUnreadCount() {
     try {
       const res = await api.get('/notifications', { silent: true })
       setUnreadCount(res.data.unreadCount || 0)
-    } catch {}
+    } catch {
+      // ignore: the badge simply stays as it was
+    }
   }, [])
 
   useEffect(() => {
-    if (!isLoggedIn) { setUnreadCount(0); return }
+    if (!isLoggedIn) {
+      setUnreadCount(0)
+      return
+    }
     refresh()
     const timer = setInterval(refresh, 60000)
     return () => clearInterval(timer)

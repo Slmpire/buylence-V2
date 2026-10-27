@@ -4,7 +4,8 @@ const authenticate = require('../middleware/auth')
 const requireRole = require('../middleware/requireRole')
 const asyncHandler = require('express-async-handler')
 const prisma = require('../utils/prisma')
-
+const toCoord = (v) =>
+  v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v)
 // GET /api/vendors
 // Public — browse all verified vendors
 router.get('/', asyncHandler(async (req, res) => {
