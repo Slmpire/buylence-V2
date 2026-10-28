@@ -4,8 +4,10 @@ import { User, Building2, Shield, ArrowRight, ArrowLeft, Upload, Rocket } from '
 import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import api from '../../lib/axios'
+import Logo from '../../components/common/Logo'
+import LocationPicker from '../../components/common/LocationPicker'
+import LocationMultiSelect from '../../components/common/LocationMultiSelect'
 
-const HALLS = ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'Mozambique Hall', 'Angola Hall', 'ETF Hall']
 const STORE_TYPES = ['Physical Kiosk', 'Hostel Room', 'Online Only', 'Mobile Vendor']
 const CATEGORIES = [
   'Grains & Cereals',
@@ -62,13 +64,9 @@ function Sidebar({ step, isMobile }) {
         borderBottom: '1px solid rgba(0,0,0,0.06)',
         padding: '14px 16px',
       }}>
-        <Link to="/" style={{
-          fontWeight: 900, fontSize: 14,
-          color: '#1D1D1D', textDecoration: 'none',
-          letterSpacing: '-0.3px', display: 'block', marginBottom: 12,
-        }}>
-          Shop Buylence
-        </Link>
+        <div style={{ marginBottom: 12 }}>
+          <Logo size={28} textSize={14} />
+        </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {STEPS.map(s => (
             <div key={s.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
@@ -99,15 +97,11 @@ function Sidebar({ step, isMobile }) {
     }}>
       {/* Brand */}
       <div style={{ padding: '20px 16px 16px' }}>
-        <Link to="/" style={{
-          fontWeight: 900, fontSize: 14,
-          color: '#1D1D1D', textDecoration: 'none',
-          letterSpacing: '-0.3px', display: 'block', marginBottom: 2,
-        }}>
-          Shop Buylence
-        </Link>
+        <div style={{ marginBottom: 6 }}>
+          <Logo size={28} textSize={14} />
+        </div>
         <p style={{ fontSize: 10, color: '#9C9488', letterSpacing: '0.06em', margin: 0, fontWeight: 600 }}>
-          Shop Buylence Vendor
+          VENDOR ONBOARDING
         </p>
       </div>
 
@@ -331,7 +325,7 @@ function StepTwo({ data, onChange, isMobile }) {
             Business Information
           </h1>
           <p style={{ fontSize: 13, color: '#7F766B', lineHeight: 1.6, margin: '0 0 22px', maxWidth: 420 }}>
-            Tell us about your campus store. This information helps students find your products easily across OAU campus.
+            Tell us about your campus store. This information helps students find your products easily.
           </p>
 
           {/* Store name */}
@@ -347,20 +341,21 @@ function StepTwo({ data, onChange, isMobile }) {
             />
           </div>
 
-          {/* Hall + Type */}
+          {/* Location + Type */}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14, marginBottom: 14 }}>
             <div>
-              <label style={lbl}>Location (OAU Halls)</label>
-              <select
+              <LocationPicker
                 value={data.hall}
-                onChange={e => onChange('hall', e.target.value)}
-                style={{ ...inp, cursor: 'pointer', fontSize: isMobile ? 15 : 13 }}
-                onFocus={e => e.target.style.borderColor = '#BE864B'}
-                onBlur={e => e.target.style.borderColor = '#E4DDD3'}
-              >
-                <option value="">Select Hall</option>
-                {HALLS.map(h => <option key={h} value={h}>{h}</option>)}
-              </select>
+                onChange={loc => {
+                  onChange('hall', loc.name)
+                  onChange('latitude', loc.latitude ?? null)
+                  onChange('longitude', loc.longitude ?? null)
+                }}
+                label="Store Location"
+                placeholder="Choose where your store is..."
+                inputStyle={{ ...inp, fontSize: isMobile ? 15 : 13 }}
+                labelStyle={lbl}
+              />
             </div>
             <div>
               <label style={lbl}>Store Type</label>
@@ -371,10 +366,27 @@ function StepTwo({ data, onChange, isMobile }) {
                 onFocus={e => e.target.style.borderColor = '#BE864B'}
                 onBlur={e => e.target.style.borderColor = '#E4DDD3'}
               >
-                <option value="">Physical Kiosk</option>
                 {STORE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
+          </div>
+
+          {/* Delivery areas */}
+          <div style={{
+            border: '1px solid #E4DDD3', borderRadius: 10,
+            padding: '16px', backgroundColor: 'white', marginBottom: 14,
+          }}>
+            <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 4px', color: '#1D1D1D' }}>
+              🚚 Where do you deliver?{' '}
+              <span style={{ color: '#9C9488', fontWeight: 400 }}>(Optional)</span>
+            </p>
+            <p style={{ fontSize: 11, color: '#9C9488', margin: '0 0 12px', lineHeight: 1.5 }}>
+              Pick every place you can deliver to. If you skip this, we'll start with your store location and you can change it later in Settings.
+            </p>
+            <LocationMultiSelect
+              value={data.deliveryAreas || []}
+              onChange={areas => onChange('deliveryAreas', areas)}
+            />
           </div>
 
           {/* Description */}
@@ -490,10 +502,8 @@ function StepTwo({ data, onChange, isMobile }) {
                   Vendor Tip
                 </p>
                 <p style={{ fontSize: 11, color: '#7F766B', margin: 0, lineHeight: 1.6 }}>
-                  Buyers located in{' '}
-                  <strong style={{ color: '#1D1D1D' }}>Angola</strong> or{' '}
-                  <strong style={{ color: '#1D1D1D' }}>Mozambique</strong>{' '}
-                  are currently in high demand for snacks and quick grains.
+                  Tap <strong style={{ color: '#1D1D1D' }}>"Use my current location"</strong> while
+                  you're at your store. Buyers then see how close you are, and nearby stores rank higher.
                 </p>
               </div>
             </div>
@@ -501,7 +511,7 @@ function StepTwo({ data, onChange, isMobile }) {
         </div>
       </div>
 
-      {/* OAU Campus Network banner */}
+      {/* Campus Network banner */}
       <div style={{
         marginTop: isMobile ? 28 : 40,
         backgroundColor: '#1D1D1D',
@@ -513,13 +523,13 @@ function StepTwo({ data, onChange, isMobile }) {
       }}>
         <div>
           <h3 style={{ fontSize: isMobile ? 15 : 16, fontWeight: 800, color: 'white', margin: '0 0 8px' }}>
-            OAU Campus Network
+            Campus Network
           </h3>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.7, margin: '0 0 16px', maxWidth: 340 }}>
-            Shop Buylence connects buyers across all residential halls to vendors. Your location helps us optimize delivery routes and show your products to students nearby.
+            Buylence connects buyers across campus to vendors. Your location helps us optimize delivery routes and show your products to students nearby.
           </p>
           <div style={{ display: 'flex', gap: 28 }}>
-            {[{ val: '12+', label: 'HALLS COVERED' }, { val: '2.5k+', label: 'ACTIVE STUDENTS' }].map(s => (
+            {[{ val: '12+', label: 'LOCATIONS COVERED' }, { val: '2.5k+', label: 'ACTIVE STUDENTS' }].map(s => (
               <div key={s.label}>
                 <p style={{ fontSize: 20, fontWeight: 900, color: '#BE864B', margin: '0 0 2px' }}>{s.val}</p>
                 <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.1em', margin: 0 }}>
@@ -536,7 +546,7 @@ function StepTwo({ data, onChange, isMobile }) {
           }}>
             <img
               src="https://images.unsplash.com/photo-1524661135-423995f22d0b?w=400&q=80"
-              alt="OAU Campus"
+              alt="Campus"
               style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.7 }}
             />
           </div>
@@ -728,7 +738,7 @@ function StepThree({ data, onChange, isMobile }) {
 /* ── Main ── */
 export default function VendorOnboarding() {
   const navigate = useNavigate()
-  const { login, user, isLoggedIn } = useAuthStore()
+  const { user, isLoggedIn } = useAuthStore()
   const isMobile = useIsMobile()
 
   const [step, setStep] = useState(1)
@@ -742,8 +752,14 @@ export default function VendorOnboarding() {
     phone: user?.phone || '',
   })
   const [business, setBusiness] = useState({
-    storeName: '', hall: '', storeType: 'Physical Kiosk',
-    description: '', categories: [],
+    storeName: '',
+    hall: '',            // the store location name (any place, not only halls)
+    latitude: null,
+    longitude: null,
+    deliveryAreas: [],
+    storeType: 'Physical Kiosk',
+    description: '',
+    categories: [],
   })
   const [security, setSecurity] = useState({
     password: '', confirmPassword: '',
@@ -751,8 +767,8 @@ export default function VendorOnboarding() {
 
   useEffect(() => {
     if (isLoggedIn && user?.role === 'VENDOR' && user?.vendor?.onboarded) {
-  navigate('/vendor/dashboard', { replace: true })
-}
+      navigate('/vendor/dashboard', { replace: true })
+    }
   }, [isLoggedIn, user, navigate])
 
   function updatePersonal(k, v) { setPersonal(p => ({ ...p, [k]: v })) }
@@ -767,7 +783,7 @@ export default function VendorOnboarding() {
     }
     if (step === 2) {
       if (!business.storeName) return 'Please enter your store name.'
-      if (!business.hall) return 'Please select your hall.'
+      if (!business.hall.trim()) return 'Please choose or type your store location.'
       if (!business.categories?.length) return 'Please select at least one category.'
     }
     if (step === 3) {
@@ -788,46 +804,48 @@ export default function VendorOnboarding() {
   }
 
   async function handleLaunch() {
-  const err = validate()
-  if (err) return setError(err)
-  setLoading(true)
-  try {
-    // Update profile first
-    await api.patch('/auth/profile', {
-      fullName: personal.fullName,
-      phone: personal.phone,
-    })
-    // Add this mapping before the api.post call
-const storeTypeMap = {
-  'Physical Kiosk': 'PHYSICAL_KIOSK',
-  'Hostel Room': 'HOSTEL_ROOM',
-  'Online Only': 'ONLINE_ONLY',
-  'Mobile Vendor': 'MOBILE_VENDOR',
-}
+    const err = validate()
+    if (err) return setError(err)
+    setLoading(true)
+    try {
+      // Update profile first
+      await api.patch('/auth/profile', {
+        fullName: personal.fullName,
+        phone: personal.phone,
+      })
 
-// Thenthe onboard call:
-await api.post('/vendors/onboard', {
-  storeName: business.storeName,
-  hall: business.hall,
-  storeType: storeTypeMap[business.storeType] || 'PHYSICAL_KIOSK',
-  categories: business.categories,
-  description: business.description || '',
-})
+      const storeTypeMap = {
+        'Physical Kiosk': 'PHYSICAL_KIOSK',
+        'Hostel Room': 'HOSTEL_ROOM',
+        'Online Only': 'ONLINE_ONLY',
+        'Mobile Vendor': 'MOBILE_VENDOR',
+      }
 
-    // Re-fetch user from backend to get updated role + vendor info
-   const res = await api.get('/auth/me')
-useAuthStore.setState({
-  user: res.data.user,
-  isLoggedIn: true,
-})
-setSubmitted(true)
-  } catch (err) {
-    console.error(err)
-    setError(err.response?.data?.error || 'Failed to launch store. Please try again.')
-  } finally {
-    setLoading(false)
+      await api.post('/vendors/onboard', {
+        storeName: business.storeName,
+        hall: business.hall.trim(),
+        latitude: business.latitude,
+        longitude: business.longitude,
+        deliveryAreas: business.deliveryAreas,
+        storeType: storeTypeMap[business.storeType] || 'PHYSICAL_KIOSK',
+        categories: business.categories,
+        description: business.description || '',
+      })
+
+      // Re-fetch user from backend to get updated role + vendor info
+      const res = await api.get('/auth/me')
+      useAuthStore.setState({
+        user: res.data.user,
+        isLoggedIn: true,
+      })
+      setSubmitted(true)
+    } catch (err) {
+      console.error(err)
+      setError(err.response?.data?.error || 'Failed to launch store. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
   // Success screen
   if (submitted) {
@@ -906,7 +924,7 @@ setSubmitted(true)
             backgroundColor: '#F7F4EF',
           }}>
             <button style={{
-              background: 'none', border: 'none',
+              background: 'none',
               width: 28, height: 28, borderRadius: '50%',
               border: '1px solid #E4DDD3',
               display: 'flex', alignItems: 'center',
@@ -1023,7 +1041,7 @@ setSubmitted(true)
                 <Shield size={13} />
               </span>
               <p style={{ fontSize: 11, color: '#7F766B', margin: 0, lineHeight: 1.6 }}>
-                By clicking launch, you agree to Shop Buylence's{' '}
+                By clicking launch, you agree to Buylence's{' '}
                 <Link to="/terms" style={{ color: '#BE864B', textDecoration: 'none', fontWeight: 600 }}>
                   Vendor Terms
                 </Link>
