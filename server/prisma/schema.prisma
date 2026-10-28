@@ -131,6 +131,10 @@ model Vendor {
   orders       Order[]
   reviews      Review[]
 
+    latitude      Float?
+  longitude     Float?
+  deliveryAreas String[] @default([])
+
   @@index([latitude, longitude])
   @@map("vendors")
 }

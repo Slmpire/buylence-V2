@@ -1,24 +1,44 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Camera, ShieldCheck, LogOut } from 'lucide-react'
+import { ArrowLeft, Camera, MapPin, LogOut } from 'lucide-react'
 import Navbar from '../../components/common/Navbar'
 import Footer from '../../components/common/Footer'
+import LocationPicker from '../../components/common/LocationPicker'
+import { Spinner } from '../../components/common/GlobalLoader'
 import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
-import api from '../../lib/axios'
+import { toast } from '../../store/toastStore'
 
-const HALLS = ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'Mozambique Hall', 'Angola Hall', 'ETF Hall', 'Awolowo Hall']
+// Defined OUTSIDE Profile so typing in an input doesn't remount it (which lost focus after each letter)
+function Section({ title, subtitle, isMobile, children }) {
+  return (
+    <div style={{
+      backgroundColor: 'white',
+      border: '1px solid rgba(0,0,0,0.07)',
+      borderRadius: 14,
+      padding: isMobile ? '18px 16px' : '24px 26px',
+      marginBottom: 14,
+    }}>
+      <div style={{ marginBottom: 16 }}>
+        <h2 style={{ fontSize: isMobile ? 14 : 15, fontWeight: 800, margin: '0 0 4px', color: '#1D1D1D' }}>
+          {title}
+        </h2>
+        {subtitle && <p style={{ fontSize: 12, color: '#9C9488', margin: 0 }}>{subtitle}</p>}
+      </div>
+      {children}
+    </div>
+  )
+}
 
 export default function Profile() {
-  const { user, login, logout } = useAuthStore()
+  const { user, logout, updateProfile } = useAuthStore()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
 
   const [form, setForm] = useState({
     fullName: user?.fullName || '',
-    email: user?.email || '',
     phone: user?.phone || '',
-    hall: user?.hall || '',
+    hall: user?.hall || '',   // home location: any place, not only halls
     room: user?.room || '',
     matric: user?.matric || '',
     bio: user?.bio || '',
@@ -26,7 +46,6 @@ export default function Profile() {
 
   const [avatar, setAvatar] = useState(null)
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
 
   const inp = {
     width: '100%', padding: '11px 14px',
@@ -41,65 +60,39 @@ export default function Profile() {
     color: '#39332E', marginBottom: 6, display: 'block',
   }
 
+  const focusOn = e => { e.target.style.borderColor = '#BE864B' }
+  const focusOff = e => { e.target.style.borderColor = '#E4DDD3' }
+
   function handleChange(k, v) {
     setForm(p => ({ ...p, [k]: v }))
   }
 
   async function handleSave() {
-  setSaving(true)
-  try {
-    await api.patch('/auth/profile', {
-      fullName: form.fullName,
-      phone: form.phone,
-      hall: form.hall,
-      room: form.room,
-      matric: form.matric,
-      bio: form.bio,
-    })
+    if (!form.fullName.trim()) return toast.error('Please enter your full name.')
 
-    // Update local auth store
-    useAuthStore.getState().updateProfile({
-      fullName: form.fullName,
-      phone: form.phone,
-      hall: form.hall,
-      room: form.room,
-      matric: form.matric,
-      bio: form.bio,
-    })
-
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
-  } catch (err) {
-    console.error(err)
-    alert(err.response?.data?.error || 'Failed to save profile.')
-  } finally {
-    setSaving(false)
+    setSaving(true)
+    try {
+      // updateProfile saves to the server and updates the signed-in user in one go
+      await updateProfile({
+        fullName: form.fullName.trim(),
+        phone: form.phone,
+        hall: form.hall.trim(),
+        room: form.room,
+        matric: form.matric,
+        bio: form.bio,
+      })
+      toast.success('Profile saved.')
+    } catch (err) {
+      console.error(err)
+      toast.error(err.response?.data?.error || 'Could not save your profile.')
+    } finally {
+      setSaving(false)
+    }
   }
-}
 
-  function handleLogout() {
-    logout()
+  async function handleLogout() {
+    await logout()
     navigate('/login')
-  }
-
-  function Section({ title, subtitle, children }) {
-    return (
-      <div style={{
-        backgroundColor: 'white',
-        border: '1px solid rgba(0,0,0,0.07)',
-        borderRadius: 14,
-        padding: isMobile ? '18px 16px' : '24px 26px',
-        marginBottom: 14,
-      }}>
-        <div style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: isMobile ? 14 : 15, fontWeight: 800, margin: '0 0 4px', color: '#1D1D1D' }}>
-            {title}
-          </h2>
-          {subtitle && <p style={{ fontSize: 12, color: '#9C9488', margin: 0 }}>{subtitle}</p>}
-        </div>
-        {children}
-      </div>
-    )
   }
 
   return (
@@ -128,12 +121,12 @@ export default function Profile() {
             My Profile
           </h1>
           <p style={{ fontSize: 13, color: '#9C9488', margin: 0 }}>
-            Manage your personal information and campus details
+            Manage your personal information and delivery details
           </p>
         </div>
 
         {/* Avatar */}
-        <Section title="Profile Photo" subtitle="This appears on your orders and reviews">
+        <Section title="Profile Photo" subtitle="This appears on your orders and reviews" isMobile={isMobile}>
           <div style={{
             display: 'flex',
             flexDirection: isMobile ? 'column' : 'row',
@@ -177,34 +170,37 @@ export default function Profile() {
                 backgroundColor: '#F0FDF4', color: '#16A34A',
                 border: '1px solid #BBF7D0', letterSpacing: '0.06em',
               }}>
-                {user?.role === 'vendor' ? 'VENDOR ACCOUNT' : 'STUDENT ACCOUNT'}
+                {user?.role === 'VENDOR' ? 'VENDOR ACCOUNT'
+                  : user?.role === 'RIDER' ? 'RIDER ACCOUNT'
+                  : user?.role === 'ADMIN' ? 'ADMIN ACCOUNT'
+                  : 'STUDENT ACCOUNT'}
               </span>
             </div>
           </div>
         </Section>
 
         {/* Personal info */}
-        <Section title="Personal Information" subtitle="Your basic account details">
+        <Section title="Personal Information" subtitle="Your basic account details" isMobile={isMobile}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
               <label style={lbl}>FULL NAME</label>
               <input type="text" value={form.fullName} onChange={e => handleChange('fullName', e.target.value)}
-                placeholder="Your full name" style={inp}
-                onFocus={e => e.target.style.borderColor = '#BE864B'} onBlur={e => e.target.style.borderColor = '#E4DDD3'} />
+                placeholder="Your full name" style={inp} onFocus={focusOn} onBlur={focusOff} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
               <div>
                 <label style={lbl}>EMAIL ADDRESS</label>
-                <input type="email" value={form.email} onChange={e => handleChange('email', e.target.value)}
-                  placeholder="your@email.com" style={inp}
-                  onFocus={e => e.target.style.borderColor = '#BE864B'} onBlur={e => e.target.style.borderColor = '#E4DDD3'} />
+                <input type="email" value={user?.email || ''} disabled
+                  style={{ ...inp, backgroundColor: '#F7F4EF', color: '#9C9488' }} />
+                <p style={{ fontSize: 11, color: '#9C9488', margin: '5px 0 0' }}>
+                  Your sign-in email can't be changed here.
+                </p>
               </div>
               <div>
                 <label style={lbl}>PHONE NUMBER</label>
                 <input type="tel" value={form.phone} onChange={e => handleChange('phone', e.target.value)}
-                  placeholder="080xxxxxxxx" style={inp}
-                  onFocus={e => e.target.style.borderColor = '#BE864B'} onBlur={e => e.target.style.borderColor = '#E4DDD3'} />
+                  placeholder="080xxxxxxxx" style={inp} onFocus={focusOn} onBlur={focusOff} />
               </div>
             </div>
 
@@ -214,47 +210,43 @@ export default function Profile() {
                 value={form.bio} onChange={e => handleChange('bio', e.target.value)}
                 placeholder="Tell vendors a little about yourself..."
                 rows={2} style={{ ...inp, resize: 'none', lineHeight: 1.6 }}
-                onFocus={e => e.target.style.borderColor = '#BE864B'} onBlur={e => e.target.style.borderColor = '#E4DDD3'} />
+                onFocus={focusOn} onBlur={focusOff} />
             </div>
           </div>
         </Section>
 
-        {/* Campus info */}
-        <Section title="Campus Details" subtitle="Used for delivery routing and verification">
+        {/* Delivery details */}
+        <Section title="Delivery Details" subtitle="Your default delivery location at checkout" isMobile={isMobile}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
-              <div>
-                <label style={lbl}>HALL OF RESIDENCE</label>
-                <select value={form.hall} onChange={e => handleChange('hall', e.target.value)}
-                  style={{ ...inp, cursor: 'pointer' }}
-                  onFocus={e => e.target.style.borderColor = '#BE864B'} onBlur={e => e.target.style.borderColor = '#E4DDD3'}>
-                  <option value="">Select hall</option>
-                  {HALLS.map(h => <option key={h} value={h}>{h}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={lbl}>ROOM NUMBER</label>
-                <input type="text" value={form.room} onChange={e => handleChange('room', e.target.value)}
-                  placeholder="e.g. Block A, Room 12" style={inp}
-                  onFocus={e => e.target.style.borderColor = '#BE864B'} onBlur={e => e.target.style.borderColor = '#E4DDD3'} />
-              </div>
+            <LocationPicker
+              value={form.hall}
+              onChange={loc => handleChange('hall', loc.name)}
+              label="HOME LOCATION"
+              placeholder="Choose where you usually receive orders..."
+              inputStyle={inp}
+              labelStyle={lbl}
+            />
+
+            <div>
+              <label style={lbl}>ROOM / BLOCK / DIRECTIONS</label>
+              <input type="text" value={form.room} onChange={e => handleChange('room', e.target.value)}
+                placeholder="e.g. Block A, Room 12" style={inp} onFocus={focusOn} onBlur={focusOff} />
             </div>
 
             <div>
               <label style={lbl}>MATRIC NUMBER (OPTIONAL)</label>
               <input type="text" value={form.matric} onChange={e => handleChange('matric', e.target.value)}
-                placeholder="e.g. ENG/2021/001" style={inp}
-                onFocus={e => e.target.style.borderColor = '#BE864B'} onBlur={e => e.target.style.borderColor = '#E4DDD3'} />
+                placeholder="e.g. ENG/2021/001" style={inp} onFocus={focusOn} onBlur={focusOff} />
             </div>
 
             <div style={{
               display: 'flex', gap: 10, alignItems: 'center',
-              padding: '12px 14px', backgroundColor: '#F0FDF4',
-              border: '1px solid #BBF7D0', borderRadius: 8,
+              padding: '12px 14px', backgroundColor: '#FFF8F2',
+              border: '1px solid #F0D9C0', borderRadius: 8,
             }}>
-              <ShieldCheck size={16} color="#16A34A" style={{ flexShrink: 0 }} />
-              <p style={{ fontSize: 12, color: '#166534', margin: 0, fontWeight: 500, lineHeight: 1.5 }}>
-                Your campus identity is <strong>verified</strong>. Hall deliveries are enabled.
+              <MapPin size={16} color="#BE864B" style={{ flexShrink: 0 }} />
+              <p style={{ fontSize: 12, color: '#7F766B', margin: 0, fontWeight: 500, lineHeight: 1.5 }}>
+                We use this as your default delivery location at checkout. You can still change it for any order.
               </p>
             </div>
           </div>
@@ -271,9 +263,11 @@ export default function Profile() {
               fontWeight: 700, fontSize: isMobile ? 14 : 13,
               cursor: saving ? 'not-allowed' : 'pointer',
               fontFamily: 'Inter, sans-serif',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
           >
-            {saving ? 'Saving...' : saved ? '✓ Saved!' : 'Save Changes'}
+            {saving && <Spinner size={14} color="white" />}
+            {saving ? 'Saving...' : 'Save Changes'}
           </button>
           <button
             onClick={() => navigate('/user-settings')}
@@ -315,7 +309,7 @@ export default function Profile() {
               <LogOut size={13} /> Sign Out
             </button>
 
-            {user?.role !== 'vendor' && (
+            {user?.role === 'BUYER' && (
               <button
                 onClick={() => navigate('/vendor-onboarding')}
                 style={{

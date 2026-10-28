@@ -1,33 +1,125 @@
 import { useState } from 'react'
 import VendorLayout from '../../components/vendor/VendorLayout'
+import LocationPicker from '../../components/common/LocationPicker'
+import LocationMultiSelect from '../../components/common/LocationMultiSelect'
+import { Spinner } from '../../components/common/GlobalLoader'
 import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import api from '../../lib/axios'
+import { toast } from '../../store/toastStore'
 
+// Build the form from the signed-in vendor's real data
+function initialState(user) {
+  const v = user?.vendor || {}
+  return {
+    storeName: v.storeName || '',
+    description: v.description || '',
+    phone: user?.phone || '',
+    deliveryFee: v.deliveryFee ?? 200,
+    location: {
+      name: v.hall || '',
+      latitude: v.latitude ?? null,
+      longitude: v.longitude ?? null,
+    },
+    deliveryAreas: Array.isArray(v.deliveryAreas) ? v.deliveryAreas : [],
+  }
+}
 
-const ALL_HALLS = ['Awo Hall', 'Moremi Residence', 'ETF Hall', 'Akintola Hall', 'Off-Campus']
+function Toggle({ value, onChange }) {
+  return (
+    <div
+      onClick={onChange}
+      role="switch"
+      aria-checked={value}
+      style={{
+        width: 42, height: 24, borderRadius: 12,
+        backgroundColor: value ? '#BE864B' : '#E4DDD3',
+        position: 'relative', cursor: 'pointer',
+        transition: 'background 0.2s', flexShrink: 0,
+      }}
+    >
+      <div style={{
+        width: 18, height: 18, borderRadius: '50%',
+        backgroundColor: 'white',
+        position: 'absolute', top: 3,
+        left: value ? 21 : 3,
+        transition: 'left 0.2s',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+      }} />
+    </div>
+  )
+}
+
+function Card({ title, subtitle, isMobile, children }) {
+  return (
+    <div style={{
+      backgroundColor: 'white',
+      border: '1px solid rgba(0,0,0,0.07)',
+      borderRadius: 12, padding: isMobile ? '18px 16px' : '22px 24px',
+    }}>
+      <h2 style={{ fontSize: isMobile ? 15 : 16, fontWeight: 800, margin: subtitle ? '0 0 4px' : '0 0 16px', color: '#1D1D1D' }}>
+        {title}
+      </h2>
+      {subtitle && (
+        <p style={{ fontSize: 12, color: '#7F766B', margin: '0 0 16px', lineHeight: 1.6 }}>{subtitle}</p>
+      )}
+      {children}
+    </div>
+  )
+}
+
+function FinalizeCard({ saving, onSave, onDiscard }) {
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, #BE864B 0%, #9A662F 100%)',
+      borderRadius: 12, padding: '18px 16px',
+    }}>
+      <h3 style={{ fontSize: 14, fontWeight: 800, color: 'white', margin: '0 0 4px' }}>
+        Finalize Changes
+      </h3>
+      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', margin: '0 0 14px', lineHeight: 1.5 }}>
+        Make sure your store details are up to date before saving.
+      </p>
+      <button
+        onClick={onSave}
+        disabled={saving}
+        style={{
+          width: '100%', padding: '12px',
+          backgroundColor: 'white', color: '#1D1D1D',
+          border: 'none', borderRadius: 8,
+          fontWeight: 800, fontSize: 13,
+          cursor: saving ? 'not-allowed' : 'pointer',
+          fontFamily: 'Inter, sans-serif', marginBottom: 8,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}
+      >
+        {saving && <Spinner size={14} color="#1D1D1D" />}
+        {saving ? 'Saving...' : 'Save Changes'}
+      </button>
+      <button
+        onClick={onDiscard}
+        disabled={saving}
+        style={{
+          width: '100%', padding: '8px',
+          backgroundColor: 'transparent', color: 'rgba(255,255,255,0.85)',
+          border: 'none', fontSize: 12, fontWeight: 600,
+          cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+        }}
+      >
+        Discard Edits
+      </button>
+    </div>
+  )
+}
 
 export default function Settings() {
-  const { user, login } = useAuthStore()
+  const { user, login, updateProfile } = useAuthStore()
   const isMobile = useIsMobile()
 
-  const [form, setForm] = useState({
-    storeName: user?.storeName || 'Mama Bisi Store',
-    description: 'Artisanal campus-made provisions for the modern scholar. Sourcing only the finest local ingredients for your late-night study sessions.',
-    email: user?.email || 'workrate@gmail.com',
-    phone: user?.phone || '+234-5678-674-6544',
-  })
-
-  const [halls, setHalls] = useState({
-    'Awo Hall': true, 'Moremi Residence': true,
-    'ETF Hall': false, 'Akintola Hall': true, 'Off-Campus': false,
-  })
-
+  const [form, setForm] = useState(() => initialState(user))
   const [notifications, setNotifications] = useState({
     newOrderAlerts: true, dailyEarningsReport: false,
   })
-
-  const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const inp = {
@@ -46,69 +138,53 @@ export default function Settings() {
     color: '#39332E', marginBottom: 5, display: 'block',
   }
 
+  const focusOn = e => { e.target.style.borderColor = '#BE864B' }
+  const focusOff = e => { e.target.style.borderColor = '#E4DDD3' }
+
   function handleChange(k, v) { setForm(p => ({ ...p, [k]: v })) }
-  function toggleHall(hall) { setHalls(p => ({ ...p, [hall]: !p[hall] })) }
   function toggleNotif(key) { setNotifications(p => ({ ...p, [key]: !p[key] })) }
 
-  async function handleSave() {
-  setSaving(true)
-  try {
-    // Update user profile
-    await api.patch('/auth/profile', {
-      fullName: user?.fullName,
-      phone: form.phone,
-    })
-
-    // Update vendor store details
-    await api.patch('/vendors/me', {
-      storeName: form.storeName,
-      description: form.description,
-      deliveryHalls: Object.entries(halls)
-        .filter(([, enabled]) => enabled)
-        .map(([hall]) => hall),
-    })
-
-    // Update local auth store
-    useAuthStore.getState().updateProfile({
-      phone: form.phone,
-      storeName: form.storeName,
-    })
-
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
-  } catch (err) {
-    console.error(err)
-    alert(err.response?.data?.error || 'Failed to save settings.')
-  } finally {
-    setSaving(false)
+  function discard() {
+    setForm(initialState(user))
+    toast.info('Your edits were discarded.')
   }
-}
 
-  function Toggle({ value, onChange }) {
-    return (
-      <div
-        onClick={onChange}
-        style={{
-          width: 42, height: 24, borderRadius: 12,
-          backgroundColor: value ? '#BE864B' : '#E4DDD3',
-          position: 'relative', cursor: 'pointer',
-          transition: 'background 0.2s', flexShrink: 0,
-        }}
-      >
-        <div style={{
-          width: 18, height: 18, borderRadius: '50%',
-          backgroundColor: 'white',
-          position: 'absolute', top: 3,
-          left: value ? 21 : 3,
-          transition: 'left 0.2s',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-        }} />
-      </div>
-    )
+  async function handleSave() {
+    if (!form.storeName.trim()) return toast.error('Please enter your store name.')
+    if (!form.location.name.trim()) return toast.error('Please choose your store location.')
+    const fee = Number(form.deliveryFee)
+    if (!Number.isFinite(fee) || fee < 0) return toast.error('Delivery fee must be a number, 0 or more.')
+
+    setSaving(true)
+    try {
+      const res = await api.patch('/vendors/me', {
+        storeName: form.storeName.trim(),
+        description: form.description,
+        hall: form.location.name.trim(),
+        latitude: form.location.latitude,
+        longitude: form.location.longitude,
+        deliveryAreas: form.deliveryAreas,
+        deliveryFee: fee,
+      })
+
+      if (form.phone && form.phone !== user?.phone) {
+        await updateProfile({ phone: form.phone })
+      }
+
+      // Keep the signed-in user's copy of the store in step with the server
+      login({ vendor: res.data.vendor })
+
+      toast.success('Store settings saved.')
+    } catch (err) {
+      console.error(err)
+      toast.error(err.response?.data?.error || 'Could not save your settings.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
-    <VendorLayout searchPlaceholder="Search orders, halls, or IDs...">
+    <VendorLayout searchPlaceholder="Search orders or IDs...">
 
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
@@ -116,7 +192,7 @@ export default function Settings() {
           Settings
         </h1>
         <p style={{ fontSize: 13, color: '#7F766B', margin: 0 }}>
-          Manage your campus storefront and delivery preferences.
+          Manage your storefront, location and delivery preferences.
         </p>
       </div>
 
@@ -130,116 +206,99 @@ export default function Settings() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* Store profile */}
-          <div style={{
-            backgroundColor: 'white',
-            border: '1px solid rgba(0,0,0,0.07)',
-            borderRadius: 12, padding: isMobile ? '18px 16px' : '22px 24px',
-          }}>
-            <h2 style={{ fontSize: isMobile ? 15 : 16, fontWeight: 800, margin: '0 0 16px', color: '#1D1D1D' }}>
-              Store Profile
-            </h2>
-
-            <div style={{
-              display: 'flex',
-              flexDirection: isMobile ? 'column' : 'row',
-              alignItems: isMobile ? 'flex-start' : 'flex-start',
-              gap: 16, marginBottom: 18,
-            }}>
-              {/* Logo */}
-              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                <div style={{
-                  width: 64, height: 64, borderRadius: 10,
-                  backgroundColor: '#1D1D1D',
-                  display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', overflow: 'hidden',
-                  border: '2px solid rgba(0,0,0,0.06)', flexShrink: 0,
-                }}>
-                  <span style={{ fontSize: 26 }}>🌿</span>
-                </div>
-                <div>
-                  <label htmlFor="logo-upload" style={{
-                    fontSize: 11, color: '#BE864B', fontWeight: 700,
-                    cursor: 'pointer', letterSpacing: '0.04em',
-                    display: 'block',
-                  }}>
-                    Change Logo
-                  </label>
-                  <p style={{ fontSize: 10, color: '#9C9488', margin: '2px 0 0' }}>
-                    PNG/JPG, square
-                  </p>
-                </div>
-                <input id="logo-upload" type="file" accept="image/*" style={{ display: 'none' }} />
+          <Card title="Store Profile" isMobile={isMobile}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={lbl}>Store Name</label>
+                <input
+                  type="text" value={form.storeName}
+                  onChange={e => handleChange('storeName', e.target.value)}
+                  style={inp} onFocus={focusOn} onBlur={focusOff}
+                />
               </div>
-
-              {/* Store name + description */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-                <div>
-                  <label style={lbl}>Store Name</label>
-                  <input
-                    type="text" value={form.storeName}
-                    onChange={e => handleChange('storeName', e.target.value)}
-                    style={inp}
-                    onFocus={e => e.target.style.borderColor = '#BE864B'}
-                    onBlur={e => e.target.style.borderColor = '#E4DDD3'}
-                  />
-                </div>
-                <div>
-                  <label style={lbl}>Description</label>
-                  <textarea
-                    value={form.description}
-                    onChange={e => handleChange('description', e.target.value)}
-                    rows={3}
-                    style={{ ...inp, resize: 'none', lineHeight: 1.6 }}
-                    onFocus={e => e.target.style.borderColor = '#BE864B'}
-                    onBlur={e => e.target.style.borderColor = '#E4DDD3'}
-                  />
-                </div>
+              <div>
+                <label style={lbl}>Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={e => handleChange('description', e.target.value)}
+                  rows={3}
+                  placeholder="Tell buyers what makes your store special"
+                  style={{ ...inp, resize: 'none', lineHeight: 1.6 }}
+                  onFocus={focusOn} onBlur={focusOff}
+                />
               </div>
             </div>
-          </div>
+          </Card>
+
+          {/* Location + delivery */}
+          <Card
+            title="Location & Delivery"
+            subtitle="Buyers see how far you are from them, so set your store's exact spot and the places you deliver to."
+            isMobile={isMobile}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <LocationPicker
+                value={form.location.name}
+                onChange={loc => handleChange('location', {
+                  name: loc.name,
+                  latitude: loc.latitude ?? null,
+                  longitude: loc.longitude ?? null,
+                })}
+                label="STORE LOCATION"
+                placeholder="Choose where your store is..."
+                inputStyle={inp}
+                labelStyle={lbl}
+              />
+
+              <div>
+                <label style={lbl}>DELIVERY AREAS</label>
+                <LocationMultiSelect
+                  value={form.deliveryAreas}
+                  onChange={areas => handleChange('deliveryAreas', areas)}
+                />
+              </div>
+
+              <div style={{ maxWidth: 220 }}>
+                <label style={lbl}>DELIVERY FEE (₦)</label>
+                <input
+                  type="number" min="0" inputMode="numeric"
+                  value={form.deliveryFee}
+                  onChange={e => handleChange('deliveryFee', e.target.value)}
+                  style={inp} onFocus={focusOn} onBlur={focusOff}
+                />
+                <p style={{ fontSize: 11, color: '#9C9488', margin: '5px 0 0' }}>
+                  Added to each order from your store.
+                </p>
+              </div>
+            </div>
+          </Card>
 
           {/* Personal info */}
-          <div style={{
-            backgroundColor: 'white',
-            border: '1px solid rgba(0,0,0,0.07)',
-            borderRadius: 12, padding: isMobile ? '18px 16px' : '22px 24px',
-          }}>
-            <h2 style={{ fontSize: isMobile ? 15 : 16, fontWeight: 800, margin: '0 0 16px', color: '#1D1D1D' }}>
-              Personal Info
-            </h2>
+          <Card title="Personal Info" isMobile={isMobile}>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
               <div>
                 <label style={lbl}>Email Address</label>
                 <input
-                  type="email" value={form.email}
-                  onChange={e => handleChange('email', e.target.value)}
-                  style={inp}
-                  onFocus={e => e.target.style.borderColor = '#BE864B'}
-                  onBlur={e => e.target.style.borderColor = '#E4DDD3'}
+                  type="email" value={user?.email || ''} disabled
+                  style={{ ...inp, backgroundColor: '#F7F4EF', color: '#9C9488' }}
                 />
+                <p style={{ fontSize: 11, color: '#9C9488', margin: '5px 0 0' }}>
+                  Your sign-in email can't be changed here.
+                </p>
               </div>
               <div>
                 <label style={lbl}>Phone Number</label>
                 <input
                   type="tel" value={form.phone}
                   onChange={e => handleChange('phone', e.target.value)}
-                  style={inp}
-                  onFocus={e => e.target.style.borderColor = '#BE864B'}
-                  onBlur={e => e.target.style.borderColor = '#E4DDD3'}
+                  style={inp} onFocus={focusOn} onBlur={focusOff}
                 />
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Notification preferences */}
-          <div style={{
-            backgroundColor: 'white',
-            border: '1px solid rgba(0,0,0,0.07)',
-            borderRadius: 12, padding: isMobile ? '18px 16px' : '22px 24px',
-          }}>
-            <h2 style={{ fontSize: isMobile ? 15 : 16, fontWeight: 800, margin: '0 0 16px', color: '#1D1D1D' }}>
-              Notification Preferences
-            </h2>
+          <Card title="Notification Preferences" isMobile={isMobile}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
                 { key: 'newOrderAlerts', label: 'New Order Alerts', desc: 'Get notified instantly when a student places an order.' },
@@ -250,134 +309,33 @@ export default function Settings() {
                   style={{
                     display: 'flex', justifyContent: 'space-between',
                     alignItems: 'center', padding: '12px 14px',
-                    backgroundColor: '#F7F4EF', borderRadius: 8,
-                    gap: 12,
+                    backgroundColor: '#F7F4EF', borderRadius: 8, gap: 12,
                   }}
                 >
                   <div>
                     <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 2px', color: '#1D1D1D' }}>
                       {notif.label}
                     </p>
-                    <p style={{ fontSize: 11, color: '#7F766B', margin: 0 }}>
-                      {notif.desc}
-                    </p>
+                    <p style={{ fontSize: 11, color: '#7F766B', margin: 0 }}>{notif.desc}</p>
                   </div>
                   <Toggle value={notifications[notif.key]} onChange={() => toggleNotif(notif.key)} />
                 </div>
               ))}
             </div>
-          </div>
+          </Card>
 
-          {/* Mobile: hall settings + finalize move here */}
           {isMobile && (
-            <>
-              <HallSettings halls={halls} toggleHall={toggleHall} isMobile={isMobile} />
-              <FinalizeCard saving={saving} saved={saved} onSave={handleSave} />
-            </>
+            <FinalizeCard saving={saving} onSave={handleSave} onDiscard={discard} />
           )}
         </div>
 
         {/* Right — desktop only */}
         {!isMobile && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <HallSettings halls={halls} toggleHall={toggleHall} isMobile={isMobile} />
-            <FinalizeCard saving={saving} saved={saved} onSave={handleSave} />
+          <div style={{ position: 'sticky', top: 68 }}>
+            <FinalizeCard saving={saving} onSave={handleSave} onDiscard={discard} />
           </div>
         )}
       </div>
     </VendorLayout>
-  )
-}
-
-function HallSettings({ halls, toggleHall, isMobile }) {
-  const ALL_HALLS = ['Awo Hall', 'Moremi Residence', 'ETF Hall', 'Akintola Hall', 'Off-Campus']
-  return (
-    <div style={{
-      backgroundColor: 'white',
-      border: '1px solid rgba(0,0,0,0.07)',
-      borderRadius: 12, padding: isMobile ? '18px 16px' : '18px 16px',
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 800, margin: 0, color: '#1D1D1D', maxWidth: isMobile ? '100%' : 140, lineHeight: 1.3 }}>
-          Delivery Hall Settings
-        </h3>
-        <span style={{ fontSize: 20 }}>🚚</span>
-      </div>
-      <p style={{ fontSize: 11, color: '#7F766B', margin: '0 0 14px', lineHeight: 1.6 }}>
-        Toggle the university residence halls where you currently offer delivery services.
-      </p>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr',
-        gap: 8,
-      }}>
-        {ALL_HALLS.map(hall => (
-          <div
-            key={hall}
-            style={{
-              display: 'flex', justifyContent: 'space-between',
-              alignItems: 'center', padding: '8px 12px',
-              border: '1px solid #E4DDD3', borderRadius: 7,
-              backgroundColor: halls[hall] ? '#FFF8F2' : 'white',
-              gap: 8,
-            }}
-          >
-            <span style={{ fontSize: 12, fontWeight: 500, color: '#1D1D1D' }}>
-              {hall}
-            </span>
-            <input
-              type="checkbox"
-              checked={halls[hall] || false}
-              onChange={() => toggleHall(hall)}
-              style={{ accentColor: '#BE864B', width: 15, height: 15, cursor: 'pointer', flexShrink: 0 }}
-            />
-          </div>
-        ))}
-      </div>
-      <p style={{ fontSize: 10, color: '#BE864B', margin: '10px 0 0', fontWeight: 600 }}>
-        ⓘ More halls will be unlocked as you grow.
-      </p>
-    </div>
-  )
-}
-
-function FinalizeCard({ saving, saved, onSave }) {
-  return (
-    <div style={{
-      background: 'linear-gradient(135deg, #BE864B 0%, #9A662F 100%)',
-      borderRadius: 12, padding: '18px 16px',
-    }}>
-      <h3 style={{ fontSize: 14, fontWeight: 800, color: 'white', margin: '0 0 4px' }}>
-        Finalize Changes
-      </h3>
-      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', margin: '0 0 14px', lineHeight: 1.5 }}>
-        Ensure all your shop details are up to date before saving.
-      </p>
-      <button
-        onClick={onSave}
-        disabled={saving}
-        style={{
-          width: '100%', padding: '12px',
-          backgroundColor: 'white', color: '#1D1D1D',
-          border: 'none', borderRadius: 8,
-          fontWeight: 800, fontSize: 13,
-          cursor: saving ? 'not-allowed' : 'pointer',
-          fontFamily: 'Inter, sans-serif',
-          marginBottom: 8,
-        }}
-      >
-        {saving ? 'Saving...' : saved ? '✓ Changes Saved!' : 'Save Changes'}
-      </button>
-      <button
-        style={{
-          width: '100%', padding: '8px',
-          backgroundColor: 'transparent', color: 'rgba(255,255,255,0.8)',
-          border: 'none', fontSize: 12, fontWeight: 600,
-          cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-        }}
-      >
-        Discard Edits
-      </button>
-    </div>
   )
 }
