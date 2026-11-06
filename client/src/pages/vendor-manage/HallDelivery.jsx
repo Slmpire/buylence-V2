@@ -236,7 +236,7 @@ export default function HallDelivery() {
                       }}>
                         {order.items?.map((item, idx) => (
                           <p key={idx} style={{ fontSize: 12, color: '#5A5550', margin: idx < order.items.length - 1 ? '0 0 4px' : 0 }}>
-                            {item.quantity}x {item.name}
+                              {item.quantity}x {item.name}{item.unitLabel ? ` (${item.unitLabel})` : ''}
                           </p>
                         ))}
                       </div>

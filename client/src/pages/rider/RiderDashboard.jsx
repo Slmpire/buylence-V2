@@ -100,7 +100,7 @@ function OrderCard({ order, onClaim, onPickUp, onDeliver, claiming, isMobile }) 
         }}>
           <p style={{ fontSize: 11, color: '#7F766B', margin: 0 }}>
             {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''} ·{' '}
-            {order.items?.slice(0, 2).map(i => `${i.quantity}x ${i.name}`).join(', ')}
+            {order.items?.slice(0, 2).map(i => `${i.quantity}x ${i.name}${i.unitLabel ? ` (${i.unitLabel})` : ''}`).join(', ')}
             {order.items?.length > 2 ? ` +${order.items.length - 2} more` : ''}
           </p>
         </div>

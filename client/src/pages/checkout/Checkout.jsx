@@ -197,7 +197,11 @@ export default function Checkout() {
 
       const res = await api.post('/orders', {
         vendorId,
-        items: items.map(item => ({ productId: item.id, quantity: item.qty })),
+        items: items.map(item => ({
+          productId: item.id,
+          unitId: item.unitId || null,
+          quantity: item.qty,
+        })),
         deliveryHall: form.hall.trim(),
         deliveryLat: form.latitude,
         deliveryLng: form.longitude,
@@ -230,7 +234,10 @@ export default function Checkout() {
           total: order.total,
           subtotal: order.subtotal,
           delivery: order.deliveryFee,
-          items,
+          items: items.map(i => ({
+            ...i,
+            name: i.unitLabel ? `${i.name} (${i.unitLabel})` : i.name,
+          })),
           orderId: order.orderNumber,
           paymentMethod: 'PAY_ON_DELIVERY',
         },
@@ -654,7 +661,7 @@ export default function Checkout() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
                 {items.map((item, i) => (
-                  <div key={item.id || i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div key={item.key || item.id || i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{
                       width: 38, height: 38, borderRadius: 7,
                       backgroundColor: '#F0EDE8', flexShrink: 0,
@@ -670,7 +677,9 @@ export default function Checkout() {
                       )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 12, fontWeight: 600, margin: 0 }}>{item.name}</p>
+                      <p style={{ fontSize: 12, fontWeight: 600, margin: 0 }}>
+                        {item.name}{item.unitLabel ? ` (${item.unitLabel})` : ''}
+                      </p>
                       <p style={{ fontSize: 10, color: '#9C9488', margin: 0 }}>×{item.qty}</p>
                     </div>
                     <span style={{ fontSize: 12, fontWeight: 700 }}>

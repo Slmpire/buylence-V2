@@ -266,7 +266,7 @@ export default function OrderDetail() {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: isMobile ? 13 : 14, fontWeight: 700, margin: '0 0 2px' }}>
-                  {item.name}
+                  {item.name}{item.unitLabel ? ` (${item.unitLabel})` : ''}
                 </p>
                 <p style={{ fontSize: 11, color: '#9C9488', margin: 0 }}>
                   ×{item.quantity}

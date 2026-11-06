@@ -124,7 +124,7 @@ export default function Confirmation() {
   const delivery = paidOrder?.deliveryFee ?? state?.delivery ?? 0
   const items = paidOrder
     ? paidOrder.items.map(i => ({
-        name: i.name, price: i.price, qty: i.quantity, img: i.product?.images?.[0],
+          name: i.unitLabel ? `${i.name} (${i.unitLabel})` : i.name, price: i.price, qty: i.quantity, img: i.product?.images?.[0],
       }))
     : (state?.items || [])
 

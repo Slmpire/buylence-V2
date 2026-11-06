@@ -22,7 +22,7 @@ export default function Cart() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
 
-  // The product shown in the popup (null = closed)
+  // The line shown in the popup (null = closed)
   const [viewing, setViewing] = useState(null)
 
   const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0)
@@ -38,6 +38,23 @@ export default function Cart() {
 
   function goToCheckout() {
     if (canCheckout) navigate('/checkout')
+  }
+
+  // The popup should show exactly the option in this cart line
+  function popupProduct(item) {
+    return {
+      ...item,
+      stock: item.stock ?? 50,
+      units: item.unitId
+        ? [{
+            id: item.unitId,
+            label: item.unitLabel || 'Piece',
+            price: item.price,
+            comparePrice: item.comparePrice ?? null,
+            stock: item.stock ?? 50,
+          }]
+        : undefined,
+    }
   }
 
   if (items.length === 0) {
@@ -146,115 +163,130 @@ export default function Cart() {
 
           {/* Cart items */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {items.map(item => (
-              <div key={item.id} style={{
-                backgroundColor: 'white',
-                borderRadius: 'var(--radius-lg)',
-                padding: isMobile ? '14px' : '16px',
-                display: 'flex', alignItems: 'center',
-                gap: isMobile ? 12 : 16,
-                border: '1px solid var(--gray-border)',
-              }}>
-                {/* Image (tap to see details) */}
-                <img
-                  src={item.images?.[0] || item.img || FALLBACK_IMG}
-                  alt={item.name}
-                  referrerPolicy="no-referrer"
-                  onClick={() => setViewing(item)}
-                  onError={e => {
-                    e.currentTarget.onerror = null
-                    e.currentTarget.src = FALLBACK_IMG
-                  }}
-                  style={{
-                    width: isMobile ? 64 : 80,
-                    height: isMobile ? 64 : 80,
-                    objectFit: 'cover',
-                    borderRadius: 'var(--radius-md)',
-                    flexShrink: 0,
-                    cursor: 'pointer',
-                  }}
-                />
+            {items.map(item => {
+              const atMax = typeof item.stock === 'number' && item.qty >= item.stock
 
-                {/* Info (tap to see details) */}
-                <div
-                  onClick={() => setViewing(item)}
-                  style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
-                >
-                  <p style={{
-                    fontSize: 9, color: 'var(--gray-muted)',
-                    letterSpacing: '0.06em', marginBottom: 2,
-                  }}>
-                    {item.tag || item.unit || item.vendor?.storeName}
-                  </p>
-                  <p style={{
-                    fontSize: isMobile ? 13 : 15,
-                    fontWeight: 800, marginBottom: 4,
-                    letterSpacing: '-0.2px',
-                    whiteSpace: 'nowrap', overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}>
-                    {item.name.toUpperCase()}
-                  </p>
-                  <p style={{
-                    fontSize: isMobile ? 14 : 16,
-                    fontWeight: 900, color: 'var(--amber)', margin: 0,
-                  }}>
-                    ₦{(item.price * item.qty).toLocaleString()}
-                  </p>
-                </div>
-
-                {/* Qty + remove */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-                  {/* Remove */}
-                  <button
-                    onClick={() => removeItem(item.id)}
-                    aria-label={`Remove ${item.name}`}
-                    style={{
-                      background: 'none', border: 'none',
-                      cursor: 'pointer', color: 'var(--gray-muted)',
-                      display: 'flex', padding: 2,
+              return (
+                <div key={item.key} style={{
+                  backgroundColor: 'white',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: isMobile ? '14px' : '16px',
+                  display: 'flex', alignItems: 'center',
+                  gap: isMobile ? 12 : 16,
+                  border: '1px solid var(--gray-border)',
+                }}>
+                  {/* Image (tap to see details) */}
+                  <img
+                    src={item.images?.[0] || item.img || FALLBACK_IMG}
+                    alt={item.name}
+                    referrerPolicy="no-referrer"
+                    onClick={() => setViewing(item)}
+                    onError={e => {
+                      e.currentTarget.onerror = null
+                      e.currentTarget.src = FALLBACK_IMG
                     }}
-                    onMouseEnter={e => e.currentTarget.style.color = '#E74C3C'}
-                    onMouseLeave={e => e.currentTarget.style.color = 'var(--gray-muted)'}
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                    style={{
+                      width: isMobile ? 64 : 80,
+                      height: isMobile ? 64 : 80,
+                      objectFit: 'cover',
+                      borderRadius: 'var(--radius-md)',
+                      flexShrink: 0,
+                      cursor: 'pointer',
+                    }}
+                  />
 
-                  {/* Qty controls */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {/* Info (tap to see details) */}
+                  <div
+                    onClick={() => setViewing(item)}
+                    style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+                  >
+                    <p style={{
+                      fontSize: 9, color: 'var(--gray-muted)',
+                      letterSpacing: '0.06em', marginBottom: 2,
+                    }}>
+                      {item.vendor?.storeName || item.tag || ''}
+                    </p>
+                    <p style={{
+                      fontSize: isMobile ? 13 : 15,
+                      fontWeight: 800, marginBottom: 2,
+                      letterSpacing: '-0.2px',
+                      whiteSpace: 'nowrap', overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}>
+                      {item.name.toUpperCase()}
+                    </p>
+                    {item.unitLabel && (
+                      <p style={{ fontSize: 11, color: '#7F766B', fontWeight: 600, margin: '0 0 4px' }}>
+                        {item.unitLabel} · ₦{item.price.toLocaleString()} each
+                      </p>
+                    )}
+                    <p style={{
+                      fontSize: isMobile ? 14 : 16,
+                      fontWeight: 900, color: 'var(--amber)', margin: 0,
+                    }}>
+                      ₦{(item.price * item.qty).toLocaleString()}
+                    </p>
+                  </div>
+
+                  {/* Qty + remove */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
                     <button
-                      onClick={() => updateQty(item.id, item.qty - 1)}
-                      aria-label="Decrease quantity"
+                      onClick={() => removeItem(item.key)}
+                      aria-label={`Remove ${item.name}`}
                       style={{
-                        width: 28, height: 28, borderRadius: '50%',
-                        border: '1.5px solid var(--gray-border)',
-                        backgroundColor: 'white', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', color: 'var(--charcoal)',
+                        background: 'none', border: 'none',
+                        cursor: 'pointer', color: 'var(--gray-muted)',
+                        display: 'flex', padding: 2,
                       }}
+                      onMouseEnter={e => { e.currentTarget.style.color = '#E74C3C' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--gray-muted)' }}
                     >
-                      <Minus size={12} />
+                      <Trash2 size={14} />
                     </button>
-                    <span style={{ fontSize: 14, fontWeight: 700, minWidth: 18, textAlign: 'center' }}>
-                      {item.qty}
-                    </span>
-                    <button
-                      onClick={() => updateQty(item.id, item.qty + 1)}
-                      aria-label="Increase quantity"
-                      style={{
-                        width: 28, height: 28, borderRadius: '50%',
-                        border: '1.5px solid var(--gray-border)',
-                        backgroundColor: 'white', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', color: 'var(--charcoal)',
-                      }}
-                    >
-                      <Plus size={12} />
-                    </button>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button
+                        onClick={() => updateQty(item.key, item.qty - 1)}
+                        aria-label="Decrease quantity"
+                        style={{
+                          width: 28, height: 28, borderRadius: '50%',
+                          border: '1.5px solid var(--gray-border)',
+                          backgroundColor: 'white', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center',
+                          justifyContent: 'center', color: 'var(--charcoal)',
+                        }}
+                      >
+                        <Minus size={12} />
+                      </button>
+                      <span style={{ fontSize: 14, fontWeight: 700, minWidth: 18, textAlign: 'center' }}>
+                        {item.qty}
+                      </span>
+                      <button
+                        onClick={() => !atMax && updateQty(item.key, item.qty + 1)}
+                        disabled={atMax}
+                        aria-label="Increase quantity"
+                        style={{
+                          width: 28, height: 28, borderRadius: '50%',
+                          border: '1.5px solid var(--gray-border)',
+                          backgroundColor: 'white',
+                          cursor: atMax ? 'not-allowed' : 'pointer',
+                          opacity: atMax ? 0.4 : 1,
+                          display: 'flex', alignItems: 'center',
+                          justifyContent: 'center', color: 'var(--charcoal)',
+                        }}
+                      >
+                        <Plus size={12} />
+                      </button>
+                    </div>
+                    {atMax && (
+                      <span style={{ fontSize: 10, color: '#B45309', fontWeight: 700 }}>
+                        Max available
+                      </span>
+                    )}
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           {/* Order summary */}
@@ -276,7 +308,7 @@ export default function Cart() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
               {[
                 { label: `Subtotal (${items.length} items)`, value: `₦${subtotal.toLocaleString()}` },
-                { label: 'Gate delivery fee', value: `₦${delivery.toLocaleString()}` },
+                { label: 'Delivery fee', value: `₦${delivery.toLocaleString()}` },
                 { label: 'Escrow protection', value: 'FREE', green: true },
               ].map(r => (
                 <div key={r.label} style={{
@@ -310,7 +342,7 @@ export default function Cart() {
               fontSize: 12, color: '#166534',
               lineHeight: 1.5, marginBottom: 16,
             }}>
-              🔒 Pay by bank transfer and your payment is held in escrow, released only after you confirm delivery.
+              🔒 Pay online and your payment is held in escrow, released only after you confirm delivery.
             </div>
 
             <button
@@ -385,7 +417,7 @@ export default function Cart() {
 
       {/* Product details popup */}
       <ProductModal
-        product={viewing ? { ...viewing, stock: viewing.stock ?? 50 } : null}
+        product={viewing ? popupProduct(viewing) : null}
         isOpen={!!viewing}
         onClose={() => setViewing(null)}
       />

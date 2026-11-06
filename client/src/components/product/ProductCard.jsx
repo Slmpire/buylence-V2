@@ -1,8 +1,18 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import useCartStore from '../../store/cartStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import ProductModal from './ProductModal'
+
+// Inline picture so a missing photo can never fail to load
+const FALLBACK_IMG =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">
+      <rect width="100%" height="100%" fill="#F0D9C0"/>
+      <text x="50%" y="50%" font-family="Arial" font-size="18" fill="#BE864B"
+            text-anchor="middle" dominant-baseline="middle">No image yet</text>
+    </svg>`
+  )
 
 export default function ProductCard({ product, onSelectProduct }) {
   const addItem = useCartStore(s => s.addItem)
@@ -12,43 +22,59 @@ export default function ProductCard({ product, onSelectProduct }) {
 
   if (!product) return null
 
+  // Ways to buy (Sachet / Pack / Carton ...). Demo products have none.
+  const units = Array.isArray(product.units) && product.units.length > 0 ? product.units : null
+  const defaultUnit = units ? (units.find(u => u.stock > 0) || units[0]) : null
+
+  const price = defaultUnit ? defaultUnit.price : product.price
+  const comparePrice = defaultUnit ? defaultUnit.comparePrice : product.comparePrice
+
+  const soldOut = units
+    ? units.every(u => u.stock <= 0)
+    : typeof product.stock === 'number' && product.stock <= 0
+
   // Support both mock (product.img) and real DB (product.images array)
-  const image = product.img ||
-    product.images?.[0] ||
-    'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80'
+  const image = product.img || product.images?.[0] || FALLBACK_IMG
 
-  // Support both mock (product.tag) and real DB (product.unit or vendor name)
-  const tag = product.tag ||
-    product.unit ||
-    product.vendor?.storeName ||
-    'CAMPUS VENDOR'
+  // Line above the name: how it is sold
+  const tag = units
+    ? (units.length === 1
+        ? `Per ${units[0].label.toLowerCase()}`
+        : units.slice(0, 3).map(u => u.label).join(' · ') + (units.length > 3 ? ' …' : ''))
+    : (product.tag || product.unit || product.vendor?.storeName || 'CAMPUS VENDOR')
 
-  // Support both mock (product.sellers) and real DB (product.stock)
   const badge = product.sellers
     ? `${product.sellers} SELLERS`
     : product.flashDeal
       ? 'FLASH DEAL'
-      : product.comparePrice
-        ? `${Math.round((1 - product.price / product.comparePrice) * 100)}% OFF`
+      : comparePrice && comparePrice > price
+        ? `${Math.round((1 - price / comparePrice) * 100)}% OFF`
         : null
 
-  // Hall availability label preview
-  const availableHallsList = Array.isArray(product.availableHalls) ? product.availableHalls : []
-  const hallLabel = availableHallsList.length > 0
-    ? (availableHallsList.length === 1 ? `🏛️ ${availableHallsList[0]}` : `🏛️ ${availableHallsList.length} Halls`)
-    : '🏛️ All Halls'
+  // Where this can be delivered
+  const places = Array.isArray(product.availableHalls) ? product.availableHalls : []
+  const locationLabel = places.length === 0
+    ? '📍 All areas'
+    : places.length === 1
+      ? `📍 ${places[0]}`
+      : `📍 ${places.length} places`
 
   function handleCardClick() {
-    if (onSelectProduct) {
-      onSelectProduct(product)
-    } else {
-      setIsModalOpen(true)
-    }
+    if (onSelectProduct) onSelectProduct(product)
+    else setIsModalOpen(true)
   }
 
   function handleQuickAdd(e) {
     e.stopPropagation()
-    addItem(product)
+    if (soldOut) return
+
+    // Several options: the buyer has to choose one first
+    if (units && units.length > 1) {
+      handleCardClick()
+      return
+    }
+
+    addItem(product, 1, defaultUnit)
     setAdded(true)
     setTimeout(() => setAdded(false), 1200)
   }
@@ -82,18 +108,31 @@ export default function ProductCard({ product, onSelectProduct }) {
           <img
             src={image}
             alt={product.name}
+            referrerPolicy="no-referrer"
             style={{
               width: '100%',
               height: isMobile ? 140 : 190,
               objectFit: 'cover',
               display: 'block',
               backgroundColor: '#F0EDE8',
+              opacity: soldOut ? 0.55 : 1,
             }}
             onError={e => {
-              e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80'
+              e.currentTarget.onerror = null
+              e.currentTarget.src = FALLBACK_IMG
             }}
           />
-          {badge && (
+
+          {soldOut ? (
+            <span style={{
+              position: 'absolute', top: 8, left: 8,
+              backgroundColor: '#DC2626', color: 'white',
+              fontSize: isMobile ? 10 : 11, fontWeight: 800,
+              letterSpacing: '0.06em', padding: '3px 8px', borderRadius: 20,
+            }}>
+              SOLD OUT
+            </span>
+          ) : badge && (
             <span style={{
               position: 'absolute', top: 8, left: 8,
               backgroundColor: product.flashDeal ? '#BE864B' : 'rgba(0,0,0,0.72)',
@@ -106,7 +145,8 @@ export default function ProductCard({ product, onSelectProduct }) {
               {badge}
             </span>
           )}
-          {product.comparePrice && (
+
+          {!soldOut && comparePrice && comparePrice > price && (
             <span style={{
               position: 'absolute', top: 8, right: 8,
               backgroundColor: '#BE864B', color: 'white',
@@ -127,7 +167,10 @@ export default function ProductCard({ product, onSelectProduct }) {
           justifyContent: 'space-between',
         }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 4 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center',
+              justifyContent: 'space-between', gap: 6, marginBottom: 4,
+            }}>
               <p style={{
                 fontSize: isMobile ? 10 : 11,
                 color: 'var(--gray-muted, #9C9488)',
@@ -147,7 +190,7 @@ export default function ProductCard({ product, onSelectProduct }) {
                 borderRadius: 4,
                 whiteSpace: 'nowrap',
               }}>
-                {hallLabel}
+                {locationLabel}
               </span>
             </div>
             <p style={{
@@ -175,27 +218,38 @@ export default function ProductCard({ product, onSelectProduct }) {
                 fontSize: isMobile ? 15 : 18,
                 fontWeight: 900, color: 'var(--amber, #BE864B)',
               }}>
-                ₦{product.price.toLocaleString()}
+                ₦{price.toLocaleString()}
               </span>
-              {product.comparePrice && (
+              {defaultUnit && (
+                <span style={{ fontSize: 11, color: '#9C9488', marginLeft: 4 }}>
+                  / {defaultUnit.label.toLowerCase()}
+                </span>
+              )}
+              {comparePrice && comparePrice > price && (
                 <span style={{
-                  fontSize: isMobile ? 11 : 11, color: '#9C9488',
+                  fontSize: 11, color: '#9C9488',
                   textDecoration: 'line-through', marginLeft: 5,
                 }}>
-                  ₦{product.comparePrice.toLocaleString()}
+                  ₦{comparePrice.toLocaleString()}
                 </span>
+              )}
+              {units && units.length > 1 && (
+                <p style={{ fontSize: 10, color: '#BE864B', fontWeight: 700, margin: '2px 0 0' }}>
+                  {units.length} sizes available
+                </p>
               )}
             </div>
             <button
               onClick={handleQuickAdd}
+              disabled={soldOut}
               aria-label={`Add ${product.name} to cart`}
               style={{
                 width: isMobile ? 32 : 36,
                 height: isMobile ? 32 : 36,
                 borderRadius: '50%',
-                backgroundColor: added ? '#16A34A' : 'var(--charcoal, #1D1D1D)',
+                backgroundColor: soldOut ? '#DCD6CD' : added ? '#16A34A' : 'var(--charcoal, #1D1D1D)',
                 color: 'white',
-                border: 'none', cursor: 'pointer',
+                border: 'none', cursor: soldOut ? 'not-allowed' : 'pointer',
                 display: 'flex', alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: added ? 15 : 18, fontWeight: added ? 800 : 400,
@@ -205,10 +259,10 @@ export default function ProductCard({ product, onSelectProduct }) {
                 boxShadow: added ? '0 4px 12px rgba(22, 163, 74, 0.4)' : 'none',
               }}
               onMouseEnter={e => {
-                if (!added) e.currentTarget.style.backgroundColor = 'var(--amber, #BE864B)'
+                if (!added && !soldOut) e.currentTarget.style.backgroundColor = 'var(--amber, #BE864B)'
               }}
               onMouseLeave={e => {
-                if (!added) e.currentTarget.style.backgroundColor = 'var(--charcoal, #1D1D1D)'
+                if (!added && !soldOut) e.currentTarget.style.backgroundColor = 'var(--charcoal, #1D1D1D)'
               }}
             >
               {added ? '✓' : '+'}
