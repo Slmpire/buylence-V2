@@ -1,10 +1,10 @@
 import { Routes, Route } from 'react-router-dom'
 import { useEffect, lazy, Suspense } from 'react'
 import useAuthStore from './store/authStore'
-import GlobalLoader, { PageLoader } from './components/common/GlobalLoader'
-import { VendorRoute, AuthRoute, RiderRoute, AdminRoute } from './components/common/ProtectedRoute'
-import Toaster from './components/common/Toaster'
 import useCartStore from './store/cartStore'
+import GlobalLoader, { PageLoader } from './components/common/GlobalLoader'
+import Toaster from './components/common/Toaster'
+import { VendorRoute, AuthRoute, RiderRoute, AdminRoute } from './components/common/ProtectedRoute'
 
 const Home = lazy(() => import('./pages/Home'))
 const Login = lazy(() => import('./pages/auth/Login'))
@@ -40,18 +40,13 @@ const RiderDashboard = lazy(() => import('./pages/rider/RiderDashboard'))
 const RiderHistory = lazy(() => import('./pages/rider/RiderHistory'))
 const RiderEarnings = lazy(() => import('./pages/rider/RiderEarnings'))
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
-const PayWithTransfer = lazy(() => import('./pages/checkout/PayWithTransfer'))
+const ManageLocations = lazy(() => import('./pages/admin/ManageLocations'))
 
 export default function App() {
   const initAuth = useAuthStore(s => s.initAuth)
-    const userId = useAuthStore(s => s.user?.id ?? null)
+  const userId = useAuthStore(s => s.user?.id ?? null)
   const authLoading = useAuthStore(s => s.loading)
   const switchCartOwner = useCartStore(s => s.switchOwner)
-
-  // Whenever the account changes (login, logout, switching users), load that account's cart
-  useEffect(() => {
-    if (!authLoading) switchCartOwner(userId)
-  }, [userId, authLoading])
 
   useEffect(() => {
     const unsubscribe = initAuth()
@@ -59,6 +54,11 @@ export default function App() {
       if (typeof unsubscribe === 'function') unsubscribe()
     }
   }, [])
+
+  // Whenever the account changes (login, logout, switching users), load that account's cart
+  useEffect(() => {
+    if (!authLoading) switchCartOwner(userId)
+  }, [userId, authLoading])
 
   return (
     <>
@@ -80,7 +80,6 @@ export default function App() {
           <Route path="/category/snacks" element={<Snacks />} />
           <Route path="/vendors" element={<VendorsList />} />
           <Route path="/vendor/:id" element={<VendorPage />} />
-          <Route path="/pay/:orderId" element={<AuthRoute><PayWithTransfer /></AuthRoute>} />
 
           {/* Auth required — logged in users only */}
           <Route path="/profile" element={<AuthRoute><Profile /></AuthRoute>} />
@@ -110,6 +109,7 @@ export default function App() {
 
           {/* Admin only */}
           <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+          <Route path="/admin/locations" element={<AdminRoute><ManageLocations /></AdminRoute>} />
         </Routes>
       </Suspense>
     </>
