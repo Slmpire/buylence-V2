@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link, Navigate } from 'react-router-dom'
-import { ShoppingCart, User, ShieldCheck, AlertCircle, ArrowLeft } from 'lucide-react'
+import { ShoppingCart, User, ShieldCheck, AlertCircle, ArrowLeft, Clock } from 'lucide-react'
 import useCartStore from '../../store/cartStore'
 import useAuthStore from '../../store/authStore'
+import useDeliveryLocation from '../../store/deliveryLocationStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import api from '../../lib/axios'
+import { toast } from '../../store/toastStore'
 import LocationPicker from '../../components/common/LocationPicker'
-import useDeliveryLocation from '../../store/deliveryLocationStore'
+
+// Keep this the same as UNPAID_ORDER_MINUTES on the server (default 30)
+const PAYMENT_WINDOW_MINUTES = 30
 
 const PAYMENT_OPTIONS = [
   {
@@ -23,19 +27,11 @@ const PAYMENT_OPTIONS = [
     badge: null,
     icon: '🟢',
   },
-  {
-    id: 'PAY_ON_DELIVERY',
-    label: 'Pay on Delivery',
-    desc: 'Cash or transfer when your order arrives at your delivery location.',
-    badge: null,
-    icon: '🏠',
-  },
 ]
 
 const METHOD_LABEL = {
   PAYSTACK: '💳 Paystack',
   OPAY: '🟢 OPay',
-  PAY_ON_DELIVERY: '🏠 Pay on Delivery',
 }
 
 function Section({ number, title, children }) {
@@ -115,12 +111,13 @@ export default function Checkout() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
 
-    const savedLocation = useDeliveryLocation.getState().location
+  // The delivery location the buyer picked while browsing (if any)
+  const savedLocation = useDeliveryLocation.getState().location
 
   const [form, setForm] = useState({
     fullName: user?.fullName || '',
     phone: user?.phone || '',
-    hall: savedLocation?.name || user?.hall || '',
+    hall: savedLocation?.name || user?.hall || '', // the delivery location name (any place)
     latitude: savedLocation?.latitude ?? null,
     longitude: savedLocation?.longitude ?? null,
     room: '',
@@ -130,8 +127,8 @@ export default function Checkout() {
   const [error, setError] = useState('')
   const [step, setStep] = useState('form')
 
-  // If the buyer comes back with the browser Back button, some browsers restore
-  // this page frozen on the "processing" screen. Reset it.
+  // If the buyer comes back with the browser Back button from the payment page,
+  // some browsers restore this page frozen on the "processing" screen. Reset it.
   useEffect(() => {
     const onShow = (e) => {
       if (e.persisted) {
@@ -148,9 +145,6 @@ export default function Checkout() {
   // for items added before it was saved). The server calculates the final total.
   const delivery = items[0]?.vendor?.deliveryFee ?? 200
   const total = subtotal + delivery
-
-  // Card and wallet payments are paid upfront and held in escrow
-  const isPrepaid = form.paymentMethod !== 'PAY_ON_DELIVERY'
 
   const inp = {
     width: '100%', padding: '11px 14px',
@@ -194,6 +188,8 @@ export default function Checkout() {
   async function handlePlaceOrder() {
     setStep('processing')
     setLoading(true)
+
+    let order = null
     try {
       const vendorId = items[0]?.vendorId
       if (!vendorId) throw new Error('Cart items are missing vendor info.')
@@ -211,42 +207,29 @@ export default function Checkout() {
         deliveryRoom: form.room || '',
         recipientName: form.fullName,
         recipientPhone: form.phone,
-        paymentMethod: form.paymentMethod, // 'PAYSTACK' | 'OPAY' | 'PAY_ON_DELIVERY'
+        paymentMethod: form.paymentMethod, // 'PAYSTACK' | 'OPAY'
       })
-      const order = res.data.order
+      order = res.data.order
 
-      // Paystack: go to Paystack's secure page. The cart is cleared once payment is confirmed.
-      if (form.paymentMethod === 'PAYSTACK') {
-        const payRes = await api.post('/payments/initialize', { orderId: order.id })
-        window.location.href = payRes.data.authorizationUrl
-        return
-      }
-
-      // OPay: go to OPay's secure page. The cart is cleared once payment is confirmed.
+      // Go to the payment page. The cart is cleared once payment is confirmed.
       if (form.paymentMethod === 'OPAY') {
         const payRes = await api.post('/payments/opay/initialize', { orderId: order.id })
         window.location.href = payRes.data.cashierUrl
+      } else {
+        const payRes = await api.post('/payments/initialize', { orderId: order.id })
+        window.location.href = payRes.data.authorizationUrl
+      }
+      return
+    } catch (err) {
+      console.error(err)
+
+      // The order exists but the payment page would not open: let them retry from the order page
+      if (order) {
+        toast.error('Your order is saved, but the payment page would not open. You can complete payment from your order.')
+        navigate(`/orders/${order.id}`)
         return
       }
 
-      // Pay on delivery: order is placed, go straight to confirmation
-      clearCart()
-      navigate('/order-confirmation', {
-        state: {
-          form,
-          total: order.total,
-          subtotal: order.subtotal,
-          delivery: order.deliveryFee,
-          items: items.map(i => ({
-            ...i,
-            name: i.unitLabel ? `${i.name} (${i.unitLabel})` : i.name,
-          })),
-          orderId: order.orderNumber,
-          paymentMethod: 'PAY_ON_DELIVERY',
-        },
-      })
-    } catch (err) {
-      console.error(err)
       setError(err.response?.data?.error || err.message || 'Something went wrong. Please try again.')
       setStep('review')
     } finally {
@@ -274,11 +257,7 @@ export default function Checkout() {
             Processing your order...
           </h2>
           <p style={{ fontSize: 14, color: '#9C9488' }}>
-            {form.paymentMethod === 'PAYSTACK'
-              ? 'Taking you to Paystack...'
-              : form.paymentMethod === 'OPAY'
-                ? 'Taking you to OPay...'
-                : 'Placing your order...'}
+            {form.paymentMethod === 'OPAY' ? 'Taking you to OPay...' : 'Taking you to Paystack...'}
           </p>
         </div>
       </div>
@@ -286,8 +265,7 @@ export default function Checkout() {
   }
 
   // Nothing to check out: send the buyer back to the cart.
-  // (After the processing block on purpose, so clearing the cart for a
-  // Pay on Delivery order doesn't redirect before the confirmation page opens.)
+  // (After the processing block on purpose, so this doesn't fire mid-payment.)
   if (items.length === 0) return <Navigate to="/cart" replace />
 
   return (
@@ -513,7 +491,7 @@ export default function Checkout() {
                     ))}
                   </div>
 
-                  {/* Payment notice */}
+                  {/* Escrow notice */}
                   <div style={{
                     marginTop: 12, backgroundColor: '#F7F4EF',
                     border: '1px solid rgba(0,0,0,0.06)',
@@ -522,17 +500,8 @@ export default function Checkout() {
                   }}>
                     <ShieldCheck size={13} color="#BE864B" style={{ flexShrink: 0, marginTop: 2 }} />
                     <p style={{ fontSize: 11, color: '#7F766B', margin: 0, lineHeight: 1.6 }}>
-                      {isPrepaid ? (
-                        <>
-                          <strong style={{ color: '#1D1D1D' }}>Buylence Escrow:</strong>{' '}
-                          Payment released only after both parties confirm delivery.
-                        </>
-                      ) : (
-                        <>
-                          <strong style={{ color: '#1D1D1D' }}>Pay on Delivery:</strong>{' '}
-                          You pay when your order arrives. Please have the amount ready.
-                        </>
-                      )}
+                      <strong style={{ color: '#1D1D1D' }}>Buylence Escrow:</strong>{' '}
+                      Your payment is held safely and only released to the vendor after you confirm delivery.
                     </p>
                   </div>
                 </Section>
@@ -581,7 +550,7 @@ export default function Checkout() {
 
                 <ReviewCard title="PAYMENT METHOD" onEdit={() => setStep('form')}>
                   <ReviewRow label="Method" value={METHOD_LABEL[form.paymentMethod]} />
-                  {isPrepaid && <ReviewRow label="Escrow" value="✓ Protected" />}
+                  <ReviewRow label="Escrow" value="✓ Protected" />
                 </ReviewCard>
 
                 {/* How confirmation works */}
@@ -595,21 +564,23 @@ export default function Checkout() {
                     How confirmation works
                   </p>
                   <p style={{ fontSize: 11, color: '#7F766B', margin: 0, lineHeight: 1.8 }}>
-                    {isPrepaid ? (
-                      <>
-                        1. You pay now → money held in escrow<br />
-                        2. Vendor confirms & dispatches<br />
-                        3. You confirm receipt<br />
-                        4. Funds released to vendor
-                      </>
-                    ) : (
-                      <>
-                        1. You place the order<br />
-                        2. Vendor confirms & dispatches<br />
-                        3. You pay when it arrives<br />
-                        4. You confirm receipt
-                      </>
-                    )}
+                    1. You pay now → money held in escrow<br />
+                    2. Vendor confirms & dispatches<br />
+                    3. You confirm receipt<br />
+                    4. Funds released to vendor
+                  </p>
+                </div>
+
+                {/* Payment window */}
+                <div style={{
+                  display: 'flex', gap: 8, alignItems: 'flex-start',
+                  backgroundColor: '#FFFBEB', border: '1px solid #FDE68A',
+                  borderRadius: 10, padding: '12px 14px', marginBottom: 14,
+                }}>
+                  <Clock size={14} color="#B45309" style={{ flexShrink: 0, marginTop: 1 }} />
+                  <p style={{ fontSize: 11, color: '#92400E', margin: 0, lineHeight: 1.6 }}>
+                    Your order is held for <strong>{PAYMENT_WINDOW_MINUTES} minutes</strong> while you pay.
+                    If payment isn't completed in time, the order is cancelled and the items go back on sale.
                   </p>
                 </div>
 
@@ -641,9 +612,7 @@ export default function Checkout() {
                     }}
                   >
                     <ShieldCheck size={18} />
-                    {isPrepaid
-                      ? 'PLACE ORDER & PAY SECURELY'
-                      : 'PLACE ORDER (PAY ON DELIVERY)'}
+                    PLACE ORDER & PAY SECURELY
                   </button>
                 )}
               </>
@@ -762,11 +731,7 @@ export default function Checkout() {
             }}
           >
             <ShieldCheck size={15} />
-            {step === 'form'
-              ? 'REVIEW ORDER'
-              : isPrepaid
-                ? 'PAY & PLACE ORDER'
-                : 'PLACE ORDER'}
+            {step === 'form' ? 'REVIEW ORDER' : 'PAY & PLACE ORDER'}
           </button>
         </div>
       )}

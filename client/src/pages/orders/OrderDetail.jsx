@@ -4,6 +4,7 @@ import { ArrowLeft, MapPin, Phone, ShieldCheck, CheckCircle, AlertCircle } from 
 import Navbar from '../../components/common/Navbar'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import api from '../../lib/axios'
+import PayNowButton from '../../components/orders/PayNowButton'
 
 const STATUS_TO_STEP = {
   PLACED: 0,
@@ -21,6 +22,16 @@ const STATUS_STEPS = [
   { key: 'out_for_delivery', label: 'Out for delivery', desc: 'Rider is on the way to your gate' },
   { key: 'delivered', label: 'Delivered', desc: 'Confirm receipt to release escrow payment' },
 ]
+
+function paymentLine(order) {
+  if (order.status === 'CANCELLED') return 'Order cancelled'
+  const via = order.paymentMethod === 'OPAY' ? 'OPay' : order.paymentMethod === 'PAYSTACK' ? 'Paystack' : null
+  if (!via) return 'Pay on delivery · Escrow pending' // older orders
+  if (order.paymentStatus === 'PENDING') return `Awaiting payment via ${via}`
+  if (order.paymentStatus === 'RELEASED') return `Paid via ${via} · Released to vendor`
+  if (order.paymentStatus === 'REFUNDED') return `Paid via ${via} · Refunded`
+  return `Paid via ${via} · Held in escrow`
+}
 
 export default function OrderDetail() {
   const { id } = useParams()
@@ -121,6 +132,15 @@ export default function OrderDetail() {
     CANCELLED: { label: 'CANCELLED', color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
   }[order.status] || { label: order.status, color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' }
 
+    const unpaid =
+    order.paymentStatus === 'PENDING' &&
+    order.status === 'PLACED' &&
+    order.paymentMethod !== 'PAY_ON_DELIVERY'
+  const shownBadge = unpaid
+    ? { label: 'AWAITING PAYMENT', color: '#B45309', bg: '#FFFBEB', border: '#FDE68A' }
+    : badge
+
+
   const cardStyle = {
     backgroundColor: 'white',
     border: '1px solid rgba(0,0,0,0.07)',
@@ -178,13 +198,15 @@ export default function OrderDetail() {
             <span style={{
               fontSize: 10, fontWeight: 800, letterSpacing: '0.08em',
               padding: '3px 10px', borderRadius: 6,
-              backgroundColor: badge.bg, color: badge.color,
-              border: `1px solid ${badge.border}`,
+              backgroundColor: shownBadge.bg, color: shownBadge.color,
+              border: `1px solid ${shownBadge.border}`,
             }}>
-              {badge.label}
+              {shownBadge.label}
             </span>
           </div>
         </div>
+
+                <PayNowButton order={order} />
 
         {/* Order Progress */}
         <div style={cardStyle}>
@@ -305,10 +327,7 @@ export default function OrderDetail() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
               <ShieldCheck size={13} color="#BE864B" />
               <span style={{ fontSize: 11, color: '#7F766B' }}>
-                {order.paymentMethod === 'PAYSTACK'
-                  ? 'Paid via Paystack · Held in escrow'
-                  : 'Pay on delivery · Escrow pending'
-                }
+                               {paymentLine(order)}
               </span>
             </div>
           </div>

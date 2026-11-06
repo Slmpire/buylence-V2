@@ -7,8 +7,9 @@ const prisma = require('../utils/prisma')
 const { releaseEscrow } = require('../services/escrow.service')
 const { revertExpiredClaims } = require('../services/claimExpiry.service')
 const { notifyUser } = require('../controllers/notification.controller')
-const { notifyVendorOfNewOrder, notifyRidersOfPickup } = require('../services/orderNotifications')
+const { notifyRidersOfPickup } = require('../services/orderNotifications')
 const { syncProductMirror } = require('../services/productUnits')
+const { cancelExpiredUnpaidOrders } = require('../services/orderExpiry.service')
 
 class StockError extends Error {}
 
@@ -42,7 +43,7 @@ router.get('/vendor/all', authenticate, requireRole('VENDOR'), asyncHandler(asyn
   const { status, page = 1, limit = 20 } = req.query
   const skip = (Number(page) - 1) * Number(limit)
 
-  // A store only sees an order once it is payable: pay-on-delivery, or already paid
+  // A store only sees an order once it is paid. (Older pay-on-delivery orders still show.)
   const where = {
     vendorId: req.user.vendor.id,
     OR: [
@@ -113,6 +114,7 @@ router.get('/rider/my-deliveries', authenticate, requireRole('RIDER'), asyncHand
 
 // POST /api/orders
 // items: [{ productId, unitId?, quantity }]  (no unitId = the product's first option)
+// Every order is paid online and held in escrow, so paymentMethod is PAYSTACK or OPAY.
 router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(async (req, res) => {
   const {
     vendorId, items, deliveryHall, deliveryRoom,
@@ -122,8 +124,8 @@ router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(asyn
   if (!vendorId || !items?.length || !deliveryHall || !recipientName || !recipientPhone || !paymentMethod) {
     return res.status(400).json({ error: 'vendorId, items, deliveryHall, recipientName, recipientPhone, and paymentMethod are required.' })
   }
-  if (!['PAYSTACK', 'OPAY', 'PAY_ON_DELIVERY'].includes(paymentMethod)) {
-    return res.status(400).json({ error: 'Invalid payment method.' })
+  if (!['PAYSTACK', 'OPAY'].includes(paymentMethod)) {
+    return res.status(400).json({ error: 'Please pay online with Paystack or OPay. Your money is held safely in escrow until delivery.' })
   }
 
   const requested = items.map(i => ({
@@ -218,7 +220,7 @@ router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(asyn
           deliveryFee,
           total,
           paymentMethod,
-          paymentStatus: 'PENDING', // card/wallet orders become HELD_IN_ESCROW only once payment is verified
+          paymentStatus: 'PENDING', // becomes HELD_IN_ESCROW only once the payment is verified
           paystackRef: null,
           status: 'PLACED',
           items: { create: orderItems },
@@ -231,24 +233,22 @@ router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(asyn
     throw err
   }
 
-  // Tell the buyer
+  // Tell the buyer. The store is told once the payment is confirmed.
   notifyUser(req.user.id, {
     title: `Order Placed (${order.orderNumber})`,
-    message: `Your order from ${vendor.storeName} has been placed successfully.`,
+    message: `Your order from ${vendor.storeName} is waiting for payment. Complete it soon so we can send it to the store.`,
     type: 'ORDER',
     link: `/orders/${order.id}`,
     category: 'orderUpdates',
   }).catch(() => {})
-
-  // Pay-on-delivery orders are ready to prepare now.
-  // Card/wallet orders notify the vendor once payment is confirmed.
-  if (paymentMethod === 'PAY_ON_DELIVERY') notifyVendorOfNewOrder(order.id)
 
   res.status(201).json({ order })
 }))
 
 // GET /api/orders — buyer's own orders
 router.get('/', authenticate, asyncHandler(async (req, res) => {
+  await cancelExpiredUnpaidOrders()
+
   const { status, page = 1, limit = 10 } = req.query
   const skip = (Number(page) - 1) * Number(limit)
 
@@ -277,6 +277,8 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
 
 // GET /api/orders/:id — MUST be after all named GET routes
 router.get('/:id', authenticate, asyncHandler(async (req, res) => {
+  await cancelExpiredUnpaidOrders()
+
   const order = await prisma.order.findUnique({
     where: { id: req.params.id },
     include: {
@@ -347,6 +349,9 @@ router.post('/:id/confirm-preparing', authenticate, requireRole('VENDOR'), async
   if (order.vendorId !== req.user.vendor.id) return res.status(403).json({ error: 'This is not your order.' })
   if (order.status !== 'PLACED') {
     return res.status(400).json({ error: `Cannot confirm — order is currently ${order.status}.` })
+  }
+  if (order.paymentMethod !== 'PAY_ON_DELIVERY' && order.paymentStatus === 'PENDING') {
+    return res.status(400).json({ error: 'This order has not been paid for yet.' })
   }
 
   const updated = await prisma.order.update({

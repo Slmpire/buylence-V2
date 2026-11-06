@@ -7,6 +7,7 @@ const morgan = require('morgan')
 const rateLimit = require('express-rate-limit')
 
 const errorHandler = require('./middleware/errorHandler')
+const { startOrderExpiryJob } = require('./services/orderExpiry.service')
 
 const app = express()
 const PORT = process.env.PORT || 5001
@@ -93,4 +94,5 @@ app.use(errorHandler)
 
 app.listen(PORT, () => {
   console.log(`✅ Buylence server running on http://localhost:${PORT}`)
+  startOrderExpiryJob()
 })
