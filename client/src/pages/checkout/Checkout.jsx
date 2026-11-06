@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link, Navigate } from 'react-router-dom'
-import { ShoppingCart, User, ShieldCheck, AlertCircle, ArrowLeft, Clock } from 'lucide-react'
+import {
+  ShoppingCart, User, ShieldCheck, AlertCircle, ArrowLeft, Clock,
+  Plus, Minus, Trash2, Bookmark,
+} from 'lucide-react'
 import useCartStore from '../../store/cartStore'
 import useAuthStore from '../../store/authStore'
 import useDeliveryLocation from '../../store/deliveryLocationStore'
@@ -32,6 +35,16 @@ const PAYMENT_OPTIONS = [
 const METHOD_LABEL = {
   PAYSTACK: '💳 Paystack',
   OPAY: '🟢 OPay',
+}
+
+// What is wrong with a cart line, if anything
+function problemOf(item) {
+  if (item.unavailable) return 'No longer available'
+  if (typeof item.stock === 'number') {
+    if (item.stock <= 0) return 'Out of stock'
+    if (item.qty > item.stock) return `Only ${item.stock} left`
+  }
+  return null
 }
 
 function Section({ number, title, children }) {
@@ -105,8 +118,128 @@ function ReviewRow({ label, value }) {
   )
 }
 
+// Editable list of what is being bought (review step)
+function ItemsCard({ items, addMoreTo, onQty, onRemove, onSave }) {
+  const round = {
+    width: 26, height: 26, borderRadius: '50%',
+    border: '1.5px solid #E4DDD3', backgroundColor: 'white',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: '#1D1D1D', padding: 0,
+  }
+  const linkBtn = {
+    background: 'none', border: 'none', padding: 0,
+    fontSize: 11, fontWeight: 700, color: '#BE864B',
+    cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+  }
+
+  return (
+    <div style={{
+      backgroundColor: 'white',
+      border: '1px solid rgba(0,0,0,0.07)',
+      borderRadius: 12, padding: '16px 18px',
+      marginBottom: 10,
+    }}>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between',
+        alignItems: 'center', marginBottom: 12,
+      }}>
+        <h3 style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', margin: 0, color: '#9C9488' }}>
+          YOUR ITEMS ({items.length})
+        </h3>
+        <Link to={addMoreTo} style={{ ...linkBtn, textDecoration: 'none' }}>
+          + ADD MORE
+        </Link>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {items.map(item => {
+          const problem = problemOf(item)
+          const atMax = typeof item.stock === 'number' && item.qty >= item.stock
+
+          return (
+            <div key={item.key} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              paddingBottom: 14, borderBottom: '1px solid rgba(0,0,0,0.05)',
+            }}>
+              <div style={{
+                width: 46, height: 46, borderRadius: 8, overflow: 'hidden',
+                backgroundColor: '#F0EDE8', flexShrink: 0,
+              }}>
+                {(item.img || item.images?.[0]) && (
+                  <img
+                    src={item.img || item.images[0]}
+                    alt={item.name}
+                    referrerPolicy="no-referrer"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                )}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 2px' }}>
+                  {item.name}{item.unitLabel ? ` (${item.unitLabel})` : ''}
+                </p>
+                <p style={{ fontSize: 11, color: '#9C9488', margin: '0 0 6px' }}>
+                  ₦{item.price.toLocaleString()} each
+                  {item.priceWas && item.priceWas !== item.price && (
+                    <span style={{ color: item.price < item.priceWas ? '#16A34A' : '#B45309', fontWeight: 700 }}>
+                      {' '}· was ₦{item.priceWas.toLocaleString()}
+                    </span>
+                  )}
+                </p>
+                {problem && (
+                  <p style={{ fontSize: 11, fontWeight: 800, color: '#DC2626', margin: '0 0 6px' }}>
+                    {problem}
+                  </p>
+                )}
+                <button onClick={() => onSave(item.key)} style={linkBtn}>
+                  <Bookmark size={11} /> Save for later
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                <p style={{ fontSize: 13, fontWeight: 800, margin: 0 }}>
+                  ₦{(item.price * item.qty).toLocaleString()}
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    onClick={() => onQty(item.key, item.qty - 1)}
+                    aria-label="Decrease quantity"
+                    style={{ ...round, cursor: 'pointer' }}
+                  >
+                    <Minus size={11} />
+                  </button>
+                  <span style={{ fontSize: 13, fontWeight: 700, minWidth: 16, textAlign: 'center' }}>
+                    {item.qty}
+                  </span>
+                  <button
+                    onClick={() => !atMax && onQty(item.key, item.qty + 1)}
+                    disabled={atMax}
+                    aria-label="Increase quantity"
+                    style={{ ...round, cursor: atMax ? 'not-allowed' : 'pointer', opacity: atMax ? 0.4 : 1 }}
+                  >
+                    <Plus size={11} />
+                  </button>
+                  <button
+                    onClick={() => onRemove(item.key)}
+                    aria-label={`Remove ${item.name}`}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9C9488', display: 'flex', padding: 2 }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function Checkout() {
-  const { items, clearCart } = useCartStore()
+  const { items, clearCart, updateQty, removeItem, saveForLater, refreshCart } = useCartStore()
   const { user } = useAuthStore()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -127,6 +260,11 @@ export default function Checkout() {
   const [error, setError] = useState('')
   const [step, setStep] = useState('form')
 
+  // Make sure the prices and stock on screen are today's
+  useEffect(() => {
+    refreshCart()
+  }, [])
+
   // If the buyer comes back with the browser Back button from the payment page,
   // some browsers restore this page frozen on the "processing" screen. Reset it.
   useEffect(() => {
@@ -145,6 +283,11 @@ export default function Checkout() {
   // for items added before it was saved). The server calculates the final total.
   const delivery = items[0]?.vendor?.deliveryFee ?? 200
   const total = subtotal + delivery
+
+  const problems = items.filter(i => problemOf(i))
+  const multiVendor = new Set(items.map(i => i.vendorId)).size > 1
+  const blocked = problems.length > 0 || multiVendor
+  const addMoreTo = items[0]?.vendorId ? `/vendor/${items[0].vendorId}` : '/marketplace'
 
   const inp = {
     width: '100%', padding: '11px 14px',
@@ -180,12 +323,18 @@ export default function Checkout() {
     if (!form.fullName) return setError('Please enter your full name.')
     if (!form.phone) return setError('Please enter your WhatsApp number.')
     if (!form.hall.trim()) return setError('Please choose or type your delivery location.')
+    if (blocked) return setError('Some items in your cart need attention. Please fix them first.')
     setError('')
     setStep('review')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function handlePlaceOrder() {
+    if (blocked) {
+      setError('Some items in your cart need attention. Please fix them first.')
+      return
+    }
+
     setStep('processing')
     setLoading(true)
 
@@ -232,6 +381,7 @@ export default function Checkout() {
 
       setError(err.response?.data?.error || err.message || 'Something went wrong. Please try again.')
       setStep('review')
+      refreshCart() // stock or prices may have just changed
     } finally {
       setLoading(false)
     }
@@ -267,6 +417,22 @@ export default function Checkout() {
   // Nothing to check out: send the buyer back to the cart.
   // (After the processing block on purpose, so this doesn't fire mid-payment.)
   if (items.length === 0) return <Navigate to="/cart" replace />
+
+  const attentionBox = (blocked && (
+    <div style={{
+      display: 'flex', gap: 8, alignItems: 'flex-start',
+      padding: '11px 14px', backgroundColor: '#FEF2F2',
+      border: '1px solid #FECACA', borderRadius: 8,
+      fontSize: 12, color: '#B91C1C', fontWeight: 500, marginBottom: 12, lineHeight: 1.5,
+    }}>
+      <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+      <span>
+        {multiVendor
+          ? 'Your cart has items from more than one store. Go back to the cart and save the others for later.'
+          : 'Some items are sold out or over the available stock. Fix them in the Your items list on the review step, or in your cart.'}
+      </span>
+    </div>
+  ))
 
   return (
     <div style={{
@@ -391,6 +557,8 @@ export default function Checkout() {
           <div>
             {step === 'form' ? (
               <>
+                {attentionBox}
+
                 {/* Contact */}
                 <Section number="01" title="CONTACT INFORMATION">
                   <div style={{
@@ -521,11 +689,14 @@ export default function Checkout() {
                 {!isMobile && (
                   <button
                     onClick={handleReview}
+                    disabled={blocked}
                     style={{
                       width: '100%', padding: '14px',
                       background: 'linear-gradient(90deg, #9A662F 0%, #D09A5F 100%)',
                       color: 'white', border: 'none', borderRadius: 10,
-                      fontWeight: 700, fontSize: 14, cursor: 'pointer',
+                      fontWeight: 700, fontSize: 14,
+                      cursor: blocked ? 'not-allowed' : 'pointer',
+                      opacity: blocked ? 0.5 : 1,
                       letterSpacing: '0.04em',
                     }}
                   >
@@ -535,6 +706,17 @@ export default function Checkout() {
               </>
             ) : (
               <>
+                {attentionBox}
+
+                {/* Editable items */}
+                <ItemsCard
+                  items={items}
+                  addMoreTo={addMoreTo}
+                  onQty={updateQty}
+                  onRemove={removeItem}
+                  onSave={saveForLater}
+                />
+
                 <ReviewCard title="CONTACT INFORMATION" onEdit={() => setStep('form')}>
                   <ReviewRow label="Name" value={form.fullName} />
                   <ReviewRow label="WhatsApp" value={form.phone} />
@@ -552,6 +734,27 @@ export default function Checkout() {
                   <ReviewRow label="Method" value={METHOD_LABEL[form.paymentMethod]} />
                   <ReviewRow label="Escrow" value="✓ Protected" />
                 </ReviewCard>
+
+                {/* Mobile has no side summary, so show the totals here */}
+                {isMobile && (
+                  <div style={{
+                    backgroundColor: 'white', border: '1px solid rgba(0,0,0,0.07)',
+                    borderRadius: 12, padding: '16px 18px', marginBottom: 10,
+                  }}>
+                    <ReviewRow label="Subtotal" value={`₦${subtotal.toLocaleString()}`} />
+                    <div style={{ height: 7 }} />
+                    <ReviewRow label="Delivery" value={`₦${delivery.toLocaleString()}`} />
+                    <div style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 10, paddingTop: 10,
+                    }}>
+                      <span style={{ fontSize: 13, fontWeight: 800 }}>TOTAL</span>
+                      <span style={{ fontSize: 18, fontWeight: 900, color: '#BE864B' }}>
+                        ₦{total.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {/* How confirmation works */}
                 <div style={{
@@ -598,14 +801,14 @@ export default function Checkout() {
                 {!isMobile && (
                   <button
                     onClick={handlePlaceOrder}
-                    disabled={loading}
+                    disabled={loading || blocked}
                     style={{
                       width: '100%', padding: '15px',
                       background: 'linear-gradient(90deg, #9A662F 0%, #D09A5F 100%)',
                       color: 'white', border: 'none', borderRadius: 10,
                       fontWeight: 700, fontSize: 15,
-                      cursor: loading ? 'not-allowed' : 'pointer',
-                      opacity: loading ? 0.7 : 1,
+                      cursor: loading || blocked ? 'not-allowed' : 'pointer',
+                      opacity: loading || blocked ? 0.5 : 1,
                       letterSpacing: '0.04em',
                       display: 'flex', alignItems: 'center',
                       justifyContent: 'center', gap: 8,
@@ -717,14 +920,14 @@ export default function Checkout() {
           </div>
           <button
             onClick={step === 'form' ? handleReview : handlePlaceOrder}
-            disabled={loading}
+            disabled={loading || blocked}
             style={{
               flex: 1, maxWidth: 220, padding: '13px',
               background: 'linear-gradient(90deg, #9A662F 0%, #D09A5F 100%)',
               color: 'white', border: 'none', borderRadius: 10,
               fontWeight: 700, fontSize: 13,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.7 : 1,
+              cursor: loading || blocked ? 'not-allowed' : 'pointer',
+              opacity: loading || blocked ? 0.5 : 1,
               letterSpacing: '0.04em',
               display: 'flex', alignItems: 'center',
               justifyContent: 'center', gap: 6,

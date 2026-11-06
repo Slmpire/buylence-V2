@@ -1,7 +1,10 @@
 import { create } from 'zustand'
+import api from '../lib/axios'
 
-const PREFIX = 'buylence-cart:'
-const keyFor = (userId) => PREFIX + (userId || 'guest')
+const CART_PREFIX = 'buylence-cart:'
+const SAVED_PREFIX = 'buylence-saved:'
+const cartKeyFor = (userId) => CART_PREFIX + (userId || 'guest')
+const savedKeyFor = (userId) => SAVED_PREFIX + (userId || 'guest')
 
 // One cart line = one product in one option (e.g. Indomie / Carton)
 const lineKey = (i) => i.key || (i.unitId ? `${i.id}:${i.unitId}` : i.id)
@@ -26,6 +29,7 @@ function save(key, items) {
   } catch {}
 }
 
+// Combine two lists, adding up quantities for the same line
 function mergeItems(base, extra) {
   const map = new Map(base.map((i) => [lineKey(i), { ...i }]))
   for (const it of extra) {
@@ -54,7 +58,7 @@ const startOwner = initialOwner()
     if (!raw) return
     const legacy = JSON.parse(raw)?.state?.items
     if (Array.isArray(legacy) && legacy.length) {
-      const key = keyFor(startOwner)
+      const key = cartKeyFor(startOwner)
       save(key, mergeItems(load(key), normalize(legacy)))
     }
     localStorage.removeItem('buylence-cart')
@@ -62,7 +66,8 @@ const startOwner = initialOwner()
 })()
 
 const useCartStore = create((set, get) => ({
-  items: load(keyFor(startOwner)),
+  items: load(cartKeyFor(startOwner)),
+  saved: load(savedKeyFor(startOwner)), // "saved for later"
   ownerId: startOwner, // null = guest
 
   // Called whenever the signed-in account changes (see App.jsx)
@@ -70,18 +75,24 @@ const useCartStore = create((set, get) => ({
     const prev = get().ownerId
     if (prev === userId) return
 
-    let items = load(keyFor(userId))
+    let items = load(cartKeyFor(userId))
+    let saved = load(savedKeyFor(userId))
 
     // Guest just signed in or signed up: keep what they added as a guest
     if (userId && prev === null) {
-      const guestItems = load(keyFor(null))
+      const guestItems = load(cartKeyFor(null))
+      const guestSaved = load(savedKeyFor(null))
       if (guestItems.length) {
         items = mergeItems(items, guestItems)
-        try { localStorage.removeItem(keyFor(null)) } catch {}
+        try { localStorage.removeItem(cartKeyFor(null)) } catch {}
+      }
+      if (guestSaved.length) {
+        saved = mergeItems(saved, guestSaved)
+        try { localStorage.removeItem(savedKeyFor(null)) } catch {}
       }
     }
 
-    set({ ownerId: userId, items })
+    set({ ownerId: userId, items, saved })
   },
 
   // addItem(product, count, unit)
@@ -102,6 +113,7 @@ const useCartStore = create((set, get) => ({
                 // Refresh what we know about this option each time it is added
                 price: chosen ? chosen.price : i.price,
                 stock: chosen ? chosen.stock : i.stock,
+                unavailable: false,
               }
             : i
         ),
@@ -137,13 +149,90 @@ const useCartStore = create((set, get) => ({
 
   updateQty: (key, qty) => {
     if (qty < 1) return get().removeItem(key)
-    set({ items: get().items.map((i) => (lineKey(i) === key ? { ...i, qty } : i)) })
+    set({
+      items: get().items.map((i) =>
+        lineKey(i) === key ? { ...i, qty, priceWas: undefined } : i
+      ),
+    })
   },
 
+  // Set a line aside for later: it leaves the cart and stops counting toward the total
+  saveForLater: (key) => {
+    const item = get().items.find((i) => lineKey(i) === key)
+    if (!item) return
+    set({
+      items: get().items.filter((i) => lineKey(i) !== key),
+      saved: mergeItems(get().saved, [item]),
+    })
+  },
+
+  // Bring a saved line back into the cart
+  moveToCart: (key) => {
+    const item = get().saved.find((i) => lineKey(i) === key)
+    if (!item) return
+    set({
+      saved: get().saved.filter((i) => lineKey(i) !== key),
+      items: mergeItems(get().items, [{ ...item, unavailable: false }]),
+    })
+    // Its price or stock may have changed while it was saved
+    get().refreshCart()
+  },
+
+  removeSaved: (key) => set({ saved: get().saved.filter((i) => lineKey(i) !== key) }),
+
+  // Emptying the cart (after a purchase) leaves "saved for later" alone
   clearCart: () => set({ items: [] }),
+
+  // Ask the server for today's price, stock and availability of every cart line
+  refreshCart: async () => {
+    const current = get().items
+    if (current.length === 0) return
+
+    try {
+      const res = await api.post(
+        '/cart/refresh',
+        { items: current.map((i) => ({ key: lineKey(i), id: i.id, unitId: i.unitId })) },
+        { silent: true }
+      )
+      const byKey = new Map((res.data.results || []).map((r) => [r.key, r]))
+
+      let next = get().items.map((i) => {
+        const r = byKey.get(lineKey(i))
+        if (!r) return i // added while we were waiting: leave it alone
+
+        if (r.status !== 'ok') return { ...i, unavailable: true }
+
+        const priceChanged = typeof i.price === 'number' && r.price !== i.price
+        const updated = {
+          ...i,
+          unavailable: false,
+          unitId: r.unitId,
+          unitLabel: r.unitLabel,
+          price: r.price,
+          comparePrice: r.comparePrice,
+          stock: r.stock,
+          priceWas: priceChanged ? i.price : i.priceWas,
+          vendor: i.vendor && r.deliveryFee !== null
+            ? { ...i.vendor, deliveryFee: r.deliveryFee }
+            : i.vendor,
+        }
+        updated.key = `${i.id}:${r.unitId}`
+        return updated
+      })
+
+      // An old line without an option may now match one that already exists: merge them
+      next = mergeItems([], next)
+      set({ items: next })
+    } catch {
+      // Offline or the server is down: keep showing what we have
+    }
+  },
 }))
 
-// Save the cart under the CURRENT owner's key after every change
-useCartStore.subscribe((state) => save(keyFor(state.ownerId), state.items))
+// Save both lists under the CURRENT owner's keys after every change
+useCartStore.subscribe((state) => {
+  save(cartKeyFor(state.ownerId), state.items)
+  save(savedKeyFor(state.ownerId), state.saved)
+})
 
 export default useCartStore
