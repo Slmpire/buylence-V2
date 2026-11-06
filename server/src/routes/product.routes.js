@@ -66,6 +66,74 @@ router.get('/mine', authenticate, requireRole('VENDOR'), asyncHandler(async (req
   res.json({ products, total: products.length })
 }))
 
+// GET /api/products/offers?name=Indomie
+// Public — every seller of a product with this name (case and spacing around it ignored),
+// with what a buyer needs to compare them: options, price, store location, order count.
+// Must stay above '/:id'.
+router.get('/offers', asyncHandler(async (req, res) => {
+  const name = String(req.query.name || '').trim()
+  if (!name) return res.status(400).json({ error: 'A product name is required.' })
+
+  const products = await prisma.product.findMany({
+    where: { isActive: true, name: { equals: name, mode: 'insensitive' } },
+    include: {
+      units: UNITS_INCLUDE,
+      vendor: {
+        select: {
+          id: true, storeName: true, hall: true, rating: true, totalReviews: true,
+          verified: true, deliveryFee: true, deliveryAreas: true,
+          latitude: true, longitude: true,
+        },
+      },
+    },
+  })
+
+  // A store without its own coordinates uses the named place it is based at, if that has them
+  const hallNames = [...new Set(
+    products.filter(p => p.vendor.latitude == null || p.vendor.longitude == null).map(p => p.vendor.hall)
+  )]
+  const places = hallNames.length > 0
+    ? await prisma.location.findMany({ where: { name: { in: hallNames } } })
+    : []
+  const placeByName = new Map(places.map(l => [l.name.toLowerCase(), l]))
+
+  // How often each product has been ordered (cancelled orders don't count; one order counts once)
+  const ids = products.map(p => p.id)
+  const idSet = new Set(ids)
+  const orderCounts = new Map()
+  if (ids.length > 0) {
+    const orders = await prisma.order.findMany({
+      where: { status: { not: 'CANCELLED' }, items: { some: { productId: { in: ids } } } },
+      select: { items: { select: { productId: true } } },
+    })
+    for (const order of orders) {
+      const seen = new Set(order.items.map(i => i.productId))
+      for (const productId of seen) {
+        if (idSet.has(productId)) orderCounts.set(productId, (orderCounts.get(productId) || 0) + 1)
+      }
+    }
+  }
+
+  const offers = products
+    .filter(p => p.units.length > 0)
+    .map(p => {
+      const v = p.vendor
+      const missing = v.latitude == null || v.longitude == null
+      const place = missing ? placeByName.get((v.hall || '').toLowerCase()) : null
+      return {
+        ...p,
+        orderCount: orderCounts.get(p.id) || 0,
+        vendor: {
+          ...v,
+          latitude: missing ? (place?.latitude ?? null) : v.latitude,
+          longitude: missing ? (place?.longitude ?? null) : v.longitude,
+        },
+      }
+    })
+
+  res.json({ name, offers })
+}))
+
 // GET /api/products/:id
 // Public — single product detail
 router.get('/:id', asyncHandler(async (req, res) => {

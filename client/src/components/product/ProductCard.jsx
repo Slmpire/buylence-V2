@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import useCartStore from '../../store/cartStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
-import ProductModal from './ProductModal'
+import ProductExplorer from './ProductExplorer'
 
 // Inline picture so a missing photo can never fail to load
 const FALLBACK_IMG =
@@ -271,9 +271,9 @@ export default function ProductCard({ product, onSelectProduct }) {
         </div>
       </div>
 
-      {/* Product Detail Modal */}
+      {/* Sellers screen, then product details */}
       {!onSelectProduct && (
-        <ProductModal
+        <ProductExplorer
           product={product}
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}

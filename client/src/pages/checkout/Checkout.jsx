@@ -6,6 +6,7 @@ import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import api from '../../lib/axios'
 import LocationPicker from '../../components/common/LocationPicker'
+import useDeliveryLocation from '../../store/deliveryLocationStore'
 
 const PAYMENT_OPTIONS = [
   {
@@ -114,12 +115,14 @@ export default function Checkout() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
 
+    const savedLocation = useDeliveryLocation.getState().location
+
   const [form, setForm] = useState({
     fullName: user?.fullName || '',
     phone: user?.phone || '',
-    hall: user?.hall || '',   // the delivery location name (any place, not just halls)
-    latitude: null,
-    longitude: null,
+    hall: savedLocation?.name || user?.hall || '',
+    latitude: savedLocation?.latitude ?? null,
+    longitude: savedLocation?.longitude ?? null,
     room: '',
     paymentMethod: 'PAYSTACK',
   })

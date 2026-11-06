@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, MapPin, Store, Check, Minus, Plus, ShoppingBag, ShieldCheck } from 'lucide-react'
+import { X, MapPin, Store, Check, Minus, Plus, ShoppingBag, ShieldCheck, ArrowLeft } from 'lucide-react'
 import useCartStore from '../../store/cartStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import UnitPicker from './UnitPicker'
@@ -98,7 +98,10 @@ function AddButton({ isAdded, isOutOfStock, total, onClick, compact }) {
   )
 }
 
-export default function ProductModal({ product, isOpen, onClose }) {
+// onBack        : shows a "← All sellers" button (used when coming from the sellers list)
+// deliveryNote  : one line under the store name, e.g. "📍 1.2 km from Awo Hall · 🚚 Delivery ₦300"
+// initialUnitKey: lowercase option name to pre-select (e.g. "carton")
+export default function ProductModal({ product, isOpen, onClose, onBack, deliveryNote, initialUnitKey }) {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const addItem = useCartStore(s => s.addItem)
@@ -114,9 +117,14 @@ export default function ProductModal({ product, isOpen, onClose }) {
       setSelectedImgIdx(0)
       setQuantity(1)
       setIsAdded(false)
+
       const list = Array.isArray(product?.units) ? product.units : []
-      const first = list.find(u => u.stock > 0) || list[0]
+      const preferred = initialUnitKey
+        ? list.find(u => u.stock > 0 && String(u.label).trim().toLowerCase() === initialUnitKey)
+        : null
+      const first = preferred || list.find(u => u.stock > 0) || list[0]
       setSelectedUnitId(first?.id ?? null)
+
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = ''
@@ -124,7 +132,7 @@ export default function ProductModal({ product, isOpen, onClose }) {
     return () => {
       document.body.style.overflow = ''
     }
-  }, [isOpen, product])
+  }, [isOpen, product, initialUnitKey])
 
   // ESC key to close
   useEffect(() => {
@@ -270,6 +278,20 @@ export default function ProductModal({ product, isOpen, onClose }) {
 
           {/* Left: images */}
           <div>
+            {onBack && (
+              <button
+                onClick={onBack}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: 12, fontWeight: 800, color: '#BE864B',
+                  fontFamily: 'Inter, sans-serif', padding: '0 0 10px',
+                }}
+              >
+                <ArrowLeft size={14} /> All sellers
+              </button>
+            )}
+
             <div style={{
               position: 'relative', borderRadius: 14, overflow: 'hidden',
               backgroundColor: '#F0EDE8', aspectRatio: '1',
@@ -342,7 +364,7 @@ export default function ProductModal({ product, isOpen, onClose }) {
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 8,
                 backgroundColor: 'white', border: '1px solid #E5DFD5',
-                borderRadius: 8, padding: '6px 12px', marginBottom: 12,
+                borderRadius: 8, padding: '6px 12px', marginBottom: deliveryNote ? 6 : 12,
                 cursor: 'pointer', width: 'fit-content',
                 transition: 'border-color 0.15s', flexWrap: 'wrap',
               }}
@@ -356,6 +378,12 @@ export default function ProductModal({ product, isOpen, onClose }) {
                 View Store →
               </span>
             </div>
+
+            {deliveryNote && (
+              <p style={{ fontSize: 12, color: '#5A5550', fontWeight: 600, margin: '0 0 12px', lineHeight: 1.5 }}>
+                {deliveryNote}
+              </p>
+            )}
 
             {/* Title */}
             <div style={{ marginBottom: 12 }}>
