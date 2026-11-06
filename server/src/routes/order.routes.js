@@ -7,10 +7,10 @@ const prisma = require('../utils/prisma')
 const { releaseEscrow } = require('../services/escrow.service')
 const { revertExpiredClaims } = require('../services/claimExpiry.service')
 const { notifyUser } = require('../controllers/notification.controller')
-const { allocateVirtualAccount } = require('../services/wemaVirtualAccount')
 const { notifyVendorOfNewOrder, notifyRidersOfPickup } = require('../services/orderNotifications')
-const toCoord = (v) =>
-  v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v)
+const { syncProductMirror } = require('../services/productUnits')
+
+class StockError extends Error {}
 
 function generateOrderNumber() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -29,7 +29,7 @@ router.get('/admin/all', authenticate, requireRole('ADMIN'), asyncHandler(async 
     include: {
       vendor: { select: { storeName: true, hall: true } },
       buyer: { select: { fullName: true } },
-      items: { select: { name: true, quantity: true, price: true } },
+      items: { select: { name: true, quantity: true, price: true, unitLabel: true } },
     },
     orderBy: { createdAt: 'desc' },
     take: 100,
@@ -42,8 +42,13 @@ router.get('/vendor/all', authenticate, requireRole('VENDOR'), asyncHandler(asyn
   const { status, page = 1, limit = 20 } = req.query
   const skip = (Number(page) - 1) * Number(limit)
 
+  // A store only sees an order once it is payable: pay-on-delivery, or already paid
   const where = {
     vendorId: req.user.vendor.id,
+    OR: [
+      { paymentMethod: 'PAY_ON_DELIVERY' },
+      { paymentStatus: { not: 'PENDING' } },
+    ],
     ...(status && { status }),
   }
 
@@ -107,6 +112,7 @@ router.get('/rider/my-deliveries', authenticate, requireRole('RIDER'), asyncHand
 // ─────────────────────────────────────────────────────
 
 // POST /api/orders
+// items: [{ productId, unitId?, quantity }]  (no unitId = the product's first option)
 router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(async (req, res) => {
   const {
     vendorId, items, deliveryHall, deliveryRoom,
@@ -116,19 +122,23 @@ router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(asyn
   if (!vendorId || !items?.length || !deliveryHall || !recipientName || !recipientPhone || !paymentMethod) {
     return res.status(400).json({ error: 'vendorId, items, deliveryHall, recipientName, recipientPhone, and paymentMethod are required.' })
   }
+  if (!['PAYSTACK', 'OPAY', 'PAY_ON_DELIVERY'].includes(paymentMethod)) {
+    return res.status(400).json({ error: 'Invalid payment method.' })
+  }
 
-  if (!['PAYSTACK', 'WEMA_TRANSFER', 'PAY_ON_DELIVERY'].includes(paymentMethod)) {
-     return res.status(400).json({ error: 'Invalid payment method.' })
-   }
-   if (items.some(i => !Number.isInteger(Number(i.quantity)) || Number(i.quantity) < 1)) {
-     return res.status(400).json({ error: 'Invalid item quantity.' })
-   }
+  const requested = items.map(i => ({
+    productId: i.productId,
+    unitId: i.unitId || null,
+    quantity: Number(i.quantity),
+  }))
+  if (requested.some(i => !i.productId || !Number.isInteger(i.quantity) || i.quantity < 1)) {
+    return res.status(400).json({ error: 'Invalid item quantity.' })
+  }
 
-     // The same product can appear twice with different options (2 sachets + 1 carton)
-  const productIds = [...new Set(items.map(i => i.productId))]
+  const productIds = [...new Set(requested.map(i => i.productId))]
   const products = await prisma.product.findMany({
     where: { id: { in: productIds }, isActive: true, vendorId },
-    include: { units: true },
+    include: { units: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } } },
   })
 
   if (products.length !== productIds.length) {
@@ -138,59 +148,90 @@ router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(asyn
   const vendor = await prisma.vendor.findUnique({ where: { id: vendorId } })
   if (!vendor) return res.status(404).json({ error: 'Vendor not found.' })
 
-  const orderItems = []
-  for (const item of items) {
+  // Match every requested line to a real option and price it from that option
+  const lines = []
+  const needed = new Map() // unitId -> total quantity wanted
+  for (const item of requested) {
     const product = products.find(p => p.id === item.productId)
-    const quantity = Number(item.quantity)
-    if (!Number.isInteger(quantity) || quantity < 1) {
-      return res.status(400).json({ error: `Invalid quantity for ${product.name}.` })
+    const unit = item.unitId
+      ? product.units.find(u => u.id === item.unitId)
+      : product.units[0]
+
+    if (!unit) {
+      return res.status(400).json({ error: `${product.name} is no longer sold that way. Please refresh your cart.` })
     }
-
-    let price = product.price
-    let unitLabel = product.unit || null
-
-    if (item.unitId) {
-      const unit = product.units.find(u => u.id === item.unitId)
-      if (!unit) {
-        return res.status(400).json({
-          error: `${product.name}: that option is no longer available. Remove it from your cart and add it again.`,
-        })
-      }
-      price = unit.price
-      unitLabel = unit.label
-    }
-
-    orderItems.push({ productId: product.id, name: product.name, price, quantity, unitLabel })
+    lines.push({ product, unit, quantity: item.quantity })
+    needed.set(unit.id, (needed.get(unit.id) || 0) + item.quantity)
   }
+
+  // Friendly stock message before we touch anything
+  for (const [unitId, qty] of needed) {
+    const line = lines.find(l => l.unit.id === unitId)
+    if (line.unit.stock < qty) {
+      const left = line.unit.stock
+      return res.status(409).json({
+        error: left === 0
+          ? `${line.product.name} (${line.unit.label}) is out of stock.`
+          : `Only ${left} ${line.unit.label} of ${line.product.name} left.`,
+      })
+    }
+  }
+
+  const orderItems = lines.map(({ product, unit, quantity }) => ({
+    productId: product.id,
+    productUnitId: unit.id,
+    unitLabel: unit.label,
+    name: product.name,
+    price: unit.price,
+    quantity,
+  }))
 
   const subtotal = orderItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
   const deliveryFee = vendor.deliveryFee
   const total = subtotal + deliveryFee
 
-  const virtualAccount = paymentMethod === 'WEMA_TRANSFER' ? await allocateVirtualAccount() : null
-  const order = await prisma.order.create({
-    data: {
-      orderNumber: generateOrderNumber(),
-      buyerId: req.user.id,
-      vendorId,
-      deliveryHall,
-      deliveryRoom,
-      recipientName,
-      recipientPhone,
-      subtotal,
-      deliveryFee,
-      total,
-         paymentMethod,
-   paymentStatus: 'PENDING', // Paystack orders become HELD_IN_ESCROW only after payment is verified
-   paystackRef: null,
-   virtualAccount,
-      status: 'PLACED',
-      items: { create: orderItems },
-    },
-    include: { items: true, vendor: { select: { storeName: true, hall: true } } },
-  })
+  let order
+  try {
+    order = await prisma.$transaction(async (tx) => {
+      // Take the stock first. If someone else bought the last one in the meantime, this fails cleanly.
+      for (const [unitId, qty] of needed) {
+        const result = await tx.productUnit.updateMany({
+          where: { id: unitId, isActive: true, stock: { gte: qty } },
+          data: { stock: { decrement: qty } },
+        })
+        if (result.count === 0) {
+          throw new StockError('Some items just sold out. Please refresh your cart and try again.')
+        }
+      }
+      for (const productId of productIds) await syncProductMirror(tx, productId)
 
-  // Trigger notification for buyer
+      return tx.order.create({
+        data: {
+          orderNumber: generateOrderNumber(),
+          buyerId: req.user.id,
+          vendorId,
+          deliveryHall,
+          deliveryRoom,
+          recipientName,
+          recipientPhone,
+          subtotal,
+          deliveryFee,
+          total,
+          paymentMethod,
+          paymentStatus: 'PENDING', // card/wallet orders become HELD_IN_ESCROW only once payment is verified
+          paystackRef: null,
+          status: 'PLACED',
+          items: { create: orderItems },
+        },
+        include: { items: true, vendor: { select: { storeName: true, hall: true } } },
+      })
+    })
+  } catch (err) {
+    if (err instanceof StockError) return res.status(409).json({ error: err.message })
+    throw err
+  }
+
+  // Tell the buyer
   notifyUser(req.user.id, {
     title: `Order Placed (${order.orderNumber})`,
     message: `Your order from ${vendor.storeName} has been placed successfully.`,
@@ -198,8 +239,9 @@ router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(asyn
     link: `/orders/${order.id}`,
     category: 'orderUpdates',
   }).catch(() => {})
-    // Pay on Delivery orders are ready to prepare immediately.
-  // Transfer/card orders notify the vendor once payment is confirmed.
+
+  // Pay-on-delivery orders are ready to prepare now.
+  // Card/wallet orders notify the vendor once payment is confirmed.
   if (paymentMethod === 'PAY_ON_DELIVERY') notifyVendorOfNewOrder(order.id)
 
   res.status(201).json({ order })
@@ -211,13 +253,9 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
   const skip = (Number(page) - 1) * Number(limit)
 
   const where = {
-  vendorId: req.user.vendor.id,
-  OR: [
-    { paymentMethod: 'PAY_ON_DELIVERY' },
-    { paymentStatus: { not: 'PENDING' } },
-  ],
-  ...(status && { status }),
-}
+    buyerId: req.user.id,
+    ...(status && { status }),
+  }
 
   const [orders, total] = await Promise.all([
     prisma.order.findMany({
@@ -353,12 +391,18 @@ router.post('/:id/ready-for-pickup', authenticate, requireRole('VENDOR'), asyncH
     category: 'orderUpdates',
   }).catch(() => {})
 
+  // Let the riders know there is something to pick up
+  notifyRidersOfPickup(order.id)
+
   res.json({ order: updated, message: 'Order is now in the rider pool.' })
 }))
 
 // POST /api/orders/:id/cancel — buyer or vendor
 router.post('/:id/cancel', authenticate, asyncHandler(async (req, res) => {
-  const order = await prisma.order.findUnique({ where: { id: req.params.id } })
+  const order = await prisma.order.findUnique({
+    where: { id: req.params.id },
+    include: { items: true },
+  })
 
   if (!order) return res.status(404).json({ error: 'Order not found.' })
 
@@ -371,12 +415,28 @@ router.post('/:id/cancel', authenticate, asyncHandler(async (req, res) => {
     return res.status(400).json({ error: `Order cannot be cancelled at status: ${order.status}.` })
   }
 
-  const updated = await prisma.order.update({
-    where: { id: order.id },
-    data: {
-      status: 'CANCELLED',
-      paymentStatus: order.paymentStatus === 'HELD_IN_ESCROW' ? 'REFUNDED' : order.paymentStatus,
-    },
+  const updated = await prisma.$transaction(async (tx) => {
+    const cancelled = await tx.order.update({
+      where: { id: order.id },
+      data: {
+        status: 'CANCELLED',
+        paymentStatus: order.paymentStatus === 'HELD_IN_ESCROW' ? 'REFUNDED' : order.paymentStatus,
+      },
+    })
+
+    // Put the stock back on the shelf
+    const touched = new Set()
+    for (const item of order.items) {
+      if (!item.productUnitId) continue
+      await tx.productUnit.updateMany({
+        where: { id: item.productUnitId },
+        data: { stock: { increment: item.quantity } },
+      })
+      touched.add(item.productId)
+    }
+    for (const productId of touched) await syncProductMirror(tx, productId)
+
+    return cancelled
   })
 
   notifyUser(order.buyerId, {
@@ -445,7 +505,7 @@ router.post('/:id/picked-up', authenticate, requireRole('RIDER'), asyncHandler(a
     },
   })
 
-  res.json({ order: updated, message: 'Marked as picked up. Head to the delivery hall.' })
+  res.json({ order: updated, message: 'Marked as picked up. Head to the delivery location.' })
 }))
 
 // POST /api/orders/:id/delivered — rider

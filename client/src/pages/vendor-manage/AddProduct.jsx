@@ -2,22 +2,27 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Upload, ArrowLeft, X } from 'lucide-react'
 import VendorLayout from '../../components/vendor/VendorLayout'
+import UnitsEditor, { emptyUnit } from '../../components/vendor/UnitsEditor'
+import LocationMultiSelect from '../../components/common/LocationMultiSelect'
+import { Spinner } from '../../components/common/GlobalLoader'
+import { PRODUCT_CATEGORIES } from '../../constants/productOptions'
+import useAuthStore from '../../store/authStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import api from '../../lib/axios'
-
-const CATEGORIES = ['Grains & Cereals', 'Snacks & Beverages', 'Oils & Spices', 'Proteins & Meat', 'Tubers & Roots', 'Vegetables']
-const UNITS = ['Per kg', 'Per piece', 'Per pack', 'Per litre', 'Per bundle', 'Per crate']
-const HALLS = ['Awo Hall', 'Moremi Hall', 'Fajuyi Hall', 'Mozambique Hall', 'Angola Hall', 'ETF Hall']
+import { toast } from '../../store/toastStore'
 
 export default function AddProduct() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
+  const user = useAuthStore(s => s.user)
+
   const [images, setImages] = useState([])
+  const [units, setUnits] = useState([emptyUnit()])
   const [form, setForm] = useState({
-    name: '', category: '', price: '',
-    comparePrice: '', stock: '', unit: '',
-    description: '', sku: '',
-    availableHalls: [], flashDeal: false,
+    name: '', category: '', description: '', sku: '',
+    // Start with everywhere this store delivers; the seller can narrow it down
+    availableHalls: Array.isArray(user?.vendor?.deliveryAreas) ? user.vendor.deliveryAreas : [],
+    flashDeal: false,
   })
   const [saving, setSaving] = useState(false)
 
@@ -38,15 +43,11 @@ export default function AddProduct() {
     marginBottom: 6, display: 'block',
   }
 
+  const focusOn = e => { e.target.style.borderColor = '#BE864B' }
+  const focusOff = e => { e.target.style.borderColor = '#E4DDD3' }
+
   function handleChange(k, v) {
     setForm(p => ({ ...p, [k]: v }))
-  }
-
-  function toggleHall(hall) {
-    const next = form.availableHalls.includes(hall)
-      ? form.availableHalls.filter(h => h !== hall)
-      : [...form.availableHalls, hall]
-    handleChange('availableHalls', next)
   }
 
   function handleImageUpload(e) {
@@ -54,34 +55,44 @@ export default function AddProduct() {
     setImages(prev => [...prev, ...files].slice(0, 4))
   }
 
- async function handleSave() {
-  if (!form.name) return alert('Please enter a product name.')
-  if (!form.category) return alert('Please select a category.')
-  if (!form.price) return alert('Please enter a price.')
+  const ready =
+    form.name.trim() && form.category && units[0]?.label.trim() && String(units[0]?.price).trim()
 
-  setSaving(true)
-  try {
-    await api.post('/products', {
-      name: form.name,
-      category: form.category,
-      price: Number(form.price),
-      comparePrice: form.comparePrice ? Number(form.comparePrice) : null,
-      stock: Number(form.stock) || 0,
-      unit: form.unit || 'Per piece',
-      description: form.description || '',
-      sku: form.sku || null,
-      availableHalls: form.availableHalls,
-      flashDeal: form.flashDeal,
-      images: [],
-    })
-    navigate('/vendor/products')
-  } catch (err) {
-    console.error(err)
-    alert(err.response?.data?.error || 'Failed to save product.')
-  } finally {
-    setSaving(false)
+  async function handleSave() {
+    if (!form.name.trim()) return toast.error('Please enter a product name.')
+    if (!form.category) return toast.error('Please select a category.')
+
+    const filled = units.filter(u => u.label.trim() || String(u.price).trim() || String(u.stock).trim())
+    if (filled.length === 0) return toast.error('Add at least one way to buy, with a name and price.')
+    if (filled.some(u => !u.label.trim())) return toast.error('Every option needs a name, like Pack or Carton.')
+    if (filled.some(u => !String(u.price).trim())) return toast.error('Every option needs a price.')
+
+    setSaving(true)
+    try {
+      await api.post('/products', {
+        name: form.name.trim(),
+        category: form.category,
+        description: form.description || '',
+        sku: form.sku || null,
+        availableHalls: form.availableHalls,
+        flashDeal: form.flashDeal,
+        images: [],
+        units: filled.map(u => ({
+          label: u.label.trim(),
+          price: Number(u.price),
+          comparePrice: u.comparePrice ? Number(u.comparePrice) : null,
+          stock: Number(u.stock) || 0,
+        })),
+      })
+      toast.success('Product published. Students can order it now.')
+      navigate('/vendor/products')
+    } catch (err) {
+      console.error(err)
+      toast.error(err.response?.data?.error || 'Failed to save product.')
+    } finally {
+      setSaving(false)
+    }
   }
-}
 
   return (
     <VendorLayout searchPlaceholder="Search inventory...">
@@ -138,40 +149,22 @@ export default function AddProduct() {
                 <input
                   type="text" value={form.name}
                   onChange={e => handleChange('name', e.target.value)}
-                  placeholder="e.g. Brown Rice (1kg)"
-                  style={inp}
-                  onFocus={e => e.target.style.borderColor = '#BE864B'}
-                  onBlur={e => e.target.style.borderColor = '#E4DDD3'}
+                  placeholder="e.g. Indomie Instant Noodles"
+                  style={inp} onFocus={focusOn} onBlur={focusOff}
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
-                <div>
-                  <label style={lbl}>CATEGORY</label>
-                  <select
-                    value={form.category}
-                    onChange={e => handleChange('category', e.target.value)}
-                    style={{ ...inp, cursor: 'pointer' }}
-                    onFocus={e => e.target.style.borderColor = '#BE864B'}
-                    onBlur={e => e.target.style.borderColor = '#E4DDD3'}
-                  >
-                    <option value="">Select category</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={lbl}>UNIT</label>
-                  <select
-                    value={form.unit}
-                    onChange={e => handleChange('unit', e.target.value)}
-                    style={{ ...inp, cursor: 'pointer' }}
-                    onFocus={e => e.target.style.borderColor = '#BE864B'}
-                    onBlur={e => e.target.style.borderColor = '#E4DDD3'}
-                  >
-                    <option value="">Select unit</option>
-                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                  </select>
-                </div>
+              <div>
+                <label style={lbl}>CATEGORY</label>
+                <select
+                  value={form.category}
+                  onChange={e => handleChange('category', e.target.value)}
+                  style={{ ...inp, cursor: 'pointer' }}
+                  onFocus={focusOn} onBlur={focusOff}
+                >
+                  <option value="">Select category</option>
+                  {PRODUCT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
               </div>
 
               <div>
@@ -179,11 +172,10 @@ export default function AddProduct() {
                 <textarea
                   value={form.description}
                   onChange={e => handleChange('description', e.target.value)}
-                  placeholder="Describe your product — freshness, origin, weight, usage..."
+                  placeholder="Describe your product: freshness, brand, size, usage..."
                   rows={3}
                   style={{ ...inp, resize: 'none', lineHeight: 1.6 }}
-                  onFocus={e => e.target.style.borderColor = '#BE864B'}
-                  onBlur={e => e.target.style.borderColor = '#E4DDD3'}
+                  onFocus={focusOn} onBlur={focusOff}
                 />
               </div>
 
@@ -193,67 +185,33 @@ export default function AddProduct() {
                   type="text" value={form.sku}
                   onChange={e => handleChange('sku', e.target.value)}
                   placeholder="e.g. BL-GR-001"
-                  style={inp}
-                  onFocus={e => e.target.style.borderColor = '#BE864B'}
-                  onBlur={e => e.target.style.borderColor = '#E4DDD3'}
+                  style={inp} onFocus={focusOn} onBlur={focusOff}
                 />
               </div>
             </div>
           </div>
 
-          {/* Pricing */}
+          {/* Ways to buy + pricing */}
           <div style={{
             backgroundColor: 'white',
             border: '1px solid rgba(0,0,0,0.07)',
             borderRadius: 12, padding: isMobile ? '16px' : '20px 22px',
           }}>
-            <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 14px', color: '#1D1D1D' }}>
-              Pricing & Stock
+            <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 4px', color: '#1D1D1D' }}>
+              Ways to Buy, Pricing & Stock
             </p>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1fr',
-              gap: 14,
-            }}>
-              <div>
-                <label style={lbl}>PRICE (₦)</label>
-                <input
-                  type="number" value={form.price}
-                  onChange={e => handleChange('price', e.target.value)}
-                  placeholder="0.00"
-                  style={inp}
-                  onFocus={e => e.target.style.borderColor = '#BE864B'}
-                  onBlur={e => e.target.style.borderColor = '#E4DDD3'}
-                />
-              </div>
-              <div>
-                <label style={lbl}>{isMobile ? 'COMPARE (₦)' : 'COMPARE PRICE (₦)'}</label>
-                <input
-                  type="number" value={form.comparePrice}
-                  onChange={e => handleChange('comparePrice', e.target.value)}
-                  placeholder="Original"
-                  style={inp}
-                  onFocus={e => e.target.style.borderColor = '#BE864B'}
-                  onBlur={e => e.target.style.borderColor = '#E4DDD3'}
-                />
-              </div>
-              <div style={{ gridColumn: isMobile ? 'span 2' : 'auto' }}>
-                <label style={lbl}>STOCK QTY</label>
-                <input
-                  type="number" value={form.stock}
-                  onChange={e => handleChange('stock', e.target.value)}
-                  placeholder="0"
-                  style={inp}
-                  onFocus={e => e.target.style.borderColor = '#BE864B'}
-                  onBlur={e => e.target.style.borderColor = '#E4DDD3'}
-                />
-              </div>
-            </div>
+            <UnitsEditor
+              units={units}
+              onChange={setUnits}
+              inputStyle={inp}
+              labelStyle={lbl}
+              isMobile={isMobile}
+            />
 
             {/* Flash deal toggle */}
             <div style={{
               display: 'flex', justifyContent: 'space-between',
-              alignItems: 'center', marginTop: 16,
+              alignItems: 'center', marginTop: 18,
               padding: '12px 14px',
               backgroundColor: '#F7F4EF', borderRadius: 8,
               gap: 12,
@@ -268,6 +226,8 @@ export default function AddProduct() {
               </div>
               <div
                 onClick={() => handleChange('flashDeal', !form.flashDeal)}
+                role="switch"
+                aria-checked={form.flashDeal}
                 style={{
                   width: 42, height: 24, borderRadius: 12,
                   backgroundColor: form.flashDeal ? '#BE864B' : '#E4DDD3',
@@ -287,47 +247,28 @@ export default function AddProduct() {
             </div>
           </div>
 
-          {/* Hall availability */}
+          {/* Delivery coverage */}
           <div style={{
             backgroundColor: 'white',
             border: '1px solid rgba(0,0,0,0.07)',
             borderRadius: 12, padding: isMobile ? '16px' : '20px 22px',
           }}>
             <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 4px', color: '#1D1D1D' }}>
-              Hall Availability
+              Where can you deliver this?
             </p>
             <p style={{ fontSize: 12, color: '#7F766B', margin: '0 0 14px' }}>
-              Select which halls you can deliver this product to
+              Starts with all your store's delivery areas. Remove any you can't deliver this product to.
             </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {HALLS.map(hall => {
-                const selected = form.availableHalls.includes(hall)
-                return (
-                  <button
-                    key={hall} type="button"
-                    onClick={() => toggleHall(hall)}
-                    style={{
-                      padding: '7px 14px', borderRadius: 20,
-                      border: '1.5px solid',
-                      borderColor: selected ? '#BE864B' : '#E4DDD3',
-                      backgroundColor: selected ? '#FFF8F2' : 'white',
-                      color: selected ? '#BE864B' : '#7F766B',
-                      fontSize: 12, fontWeight: 600,
-                      cursor: 'pointer', transition: 'all 0.15s',
-                      fontFamily: 'Inter, sans-serif',
-                    }}
-                  >
-                    {hall}
-                  </button>
-                )
-              })}
-            </div>
+            <LocationMultiSelect
+              value={form.availableHalls}
+              onChange={areas => handleChange('availableHalls', areas)}
+            />
           </div>
 
           {/* Mobile: save card moves here, after all fields */}
           {isMobile && (
             <SaveCard
-              form={form} saving={saving}
+              ready={ready} saving={saving}
               onSave={handleSave} onCancel={() => navigate('/vendor/products')}
             />
           )}
@@ -345,8 +286,8 @@ export default function AddProduct() {
             <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 4px', color: '#1D1D1D' }}>
               Product Images
             </p>
-            <p style={{ fontSize: 11, color: '#7F766B', margin: '0 0 14px' }}>
-              Upload up to 4 images. First image is the cover.
+            <p style={{ fontSize: 11, color: '#B45309', margin: '0 0 14px', lineHeight: 1.5 }}>
+              Photo upload isn't connected yet, so new products show a placeholder image for now.
             </p>
 
             <label htmlFor="img-upload" style={{ cursor: 'pointer' }}>
@@ -359,7 +300,7 @@ export default function AddProduct() {
               }}>
                 <Upload size={22} color="#9C9488" />
                 <p style={{ fontSize: 12, color: '#7F766B', margin: 0, textAlign: 'center' }}>
-                  Tap to upload
+                  Tap to preview photos
                 </p>
                 <p style={{ fontSize: 10, color: '#9C9488', margin: 0 }}>
                   PNG, JPG up to 5MB each
@@ -394,6 +335,7 @@ export default function AddProduct() {
                     )}
                     <button
                       onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
+                      aria-label="Remove photo"
                       style={{
                         position: 'absolute', top: 4, right: 4,
                         width: 18, height: 18, borderRadius: '50%',
@@ -421,14 +363,14 @@ export default function AddProduct() {
               💡 Listing Tip
             </p>
             <p style={{ fontSize: 11, color: '#7F766B', margin: 0, lineHeight: 1.6 }}>
-              Products with at least 2 images get <strong style={{ color: '#1D1D1D' }}>3x more clicks</strong> than those without.
+              Sell the way your customers buy. If students usually grab single sachets <strong style={{ color: '#1D1D1D' }}>and</strong> whole cartons, add both as separate options.
             </p>
           </div>
 
           {/* Desktop: save card here */}
           {!isMobile && (
             <SaveCard
-              form={form} saving={saving}
+              ready={ready} saving={saving}
               onSave={handleSave} onCancel={() => navigate('/vendor/products')}
             />
           )}
@@ -438,8 +380,8 @@ export default function AddProduct() {
   )
 }
 
-function SaveCard({ form, saving, onSave, onCancel }) {
-  const disabled = saving || !form.name || !form.category || !form.price
+function SaveCard({ ready, saving, onSave, onCancel }) {
+  const disabled = saving || !ready
   return (
     <div style={{
       backgroundColor: 'white',
@@ -463,8 +405,10 @@ function SaveCard({ form, saving, onSave, onCancel }) {
           cursor: disabled ? 'not-allowed' : 'pointer',
           fontFamily: 'Inter, sans-serif',
           marginBottom: 8,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         }}
       >
+        {saving && <Spinner size={14} color="white" />}
         {saving ? 'Publishing...' : 'Publish Product'}
       </button>
       <button

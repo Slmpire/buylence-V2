@@ -4,6 +4,12 @@ const authenticate = require('../middleware/auth')
 const requireRole = require('../middleware/requireRole')
 const asyncHandler = require('express-async-handler')
 const prisma = require('../utils/prisma')
+const { cleanUnits, mirrorFields, syncProductMirror } = require('../services/productUnits')
+
+const UNITS_INCLUDE = { where: { isActive: true }, orderBy: { sortOrder: 'asc' } }
+const VENDOR_PUBLIC = {
+  select: { id: true, storeName: true, hall: true, rating: true, verified: true, deliveryFee: true },
+}
 
 // GET /api/products
 // Public — browse all active products with optional filters
@@ -35,7 +41,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const [products, total] = await Promise.all([
     prisma.product.findMany({
       where,
-      include: { vendor: { select: { storeName: true, hall: true, rating: true, verified: true } } },
+      include: { vendor: VENDOR_PUBLIC, units: UNITS_INCLUDE },
       skip,
       take: Number(limit),
       orderBy: { createdAt: 'desc' },
@@ -53,19 +59,7 @@ router.get('/mine', authenticate, requireRole('VENDOR'), asyncHandler(async (req
 
   const products = await prisma.product.findMany({
     where: { vendorId: vendor.id },
-    orderBy: { createdAt: 'desc' },
-  })
-
-  res.json({ products, total: products.length })
-}))
-
-// GET /api/products/mine — vendor's own products
-router.get('/mine', authenticate, requireRole('VENDOR'), asyncHandler(async (req, res) => {
-  const vendor = await prisma.vendor.findUnique({ where: { userId: req.user.id } })
-  if (!vendor) return res.status(404).json({ error: 'Vendor profile not found.' })
-
-  const products = await prisma.product.findMany({
-    where: { vendorId: vendor.id },
+    include: { units: UNITS_INCLUDE },
     orderBy: { createdAt: 'desc' },
   })
 
@@ -77,71 +71,155 @@ router.get('/mine', authenticate, requireRole('VENDOR'), asyncHandler(async (req
 router.get('/:id', asyncHandler(async (req, res) => {
   const product = await prisma.product.findUnique({
     where: { id: req.params.id },
-    include: { vendor: { select: { storeName: true, hall: true, rating: true, verified: true, deliveryFee: true } } },
+    include: { vendor: VENDOR_PUBLIC, units: UNITS_INCLUDE },
   })
   if (!product) return res.status(404).json({ error: 'Product not found.' })
   res.json({ product })
 }))
 
 // POST /api/products
-// Vendor only — create a new product
+// Vendor only — create a new product with its ways of buying (units)
 router.post('/', authenticate, requireRole('VENDOR'), asyncHandler(async (req, res) => {
-  const { name, description, category, unit, sku, price, comparePrice, stock, images, availableHalls, flashDeal } = req.body
+  const { name, description, category, sku, images, availableHalls, flashDeal } = req.body
 
-  if (!name || !category || !price) {
-    return res.status(400).json({ error: 'name, category, and price are required.' })
+  if (!name || !String(name).trim() || !category) {
+    return res.status(400).json({ error: 'A product name and category are required.' })
   }
+
+  // Older screens still send a single price/stock/unit: treat that as one option
+  let unitInput = req.body.units
+  if (!Array.isArray(unitInput) && req.body.price) {
+    unitInput = [{
+      label: String(req.body.unit || 'Piece').replace(/^per\s+/i, '').trim() || 'Piece',
+      price: req.body.price,
+      comparePrice: req.body.comparePrice,
+      stock: req.body.stock,
+    }]
+  }
+
+  const { units, error } = cleanUnits(unitInput)
+  if (error) return res.status(400).json({ error })
 
   const product = await prisma.product.create({
     data: {
       vendorId: req.user.vendor.id,
-      name,
+      name: String(name).trim(),
       description,
       category,
-      unit,
       sku,
-      price: Number(price),
-      comparePrice: comparePrice ? Number(comparePrice) : null,
-      stock: Number(stock) || 0,
       images: images || [],
       availableHalls: availableHalls || [],
       flashDeal: flashDeal || false,
+      ...mirrorFields(units),
+      units: {
+        create: units.map(({ id, ...unit }) => unit),
+      },
     },
+    include: { units: { orderBy: { sortOrder: 'asc' } } },
   })
 
   res.status(201).json({ product })
 }))
 
 // PATCH /api/products/:id
-// Vendor only — update own product
+// Vendor only — update own product (and its options)
 router.patch('/:id', authenticate, requireRole('VENDOR'), asyncHandler(async (req, res) => {
-  const existing = await prisma.product.findUnique({ where: { id: req.params.id } })
+  const existing = await prisma.product.findUnique({
+    where: { id: req.params.id },
+    include: { units: true },
+  })
   if (!existing) return res.status(404).json({ error: 'Product not found.' })
   if (existing.vendorId !== req.user.vendor.id) return res.status(403).json({ error: 'This is not your product.' })
 
-  const { name, description, category, unit, sku, price, comparePrice, stock, images, availableHalls, flashDeal, isActive } = req.body
+  const { name, description, category, sku, images, availableHalls, flashDeal, isActive } = req.body
 
-  const product = await prisma.product.update({
+  // Work out the new set of options, if the seller sent any
+  let units = null
+  if (Array.isArray(req.body.units)) {
+    const result = cleanUnits(req.body.units)
+    if (result.error) return res.status(400).json({ error: result.error })
+    units = result.units
+
+    const ownIds = new Set(existing.units.map(u => u.id))
+    if (units.some(u => u.id && !ownIds.has(u.id))) {
+      return res.status(400).json({ error: 'One of those options does not belong to this product.' })
+    }
+  } else if (['price', 'comparePrice', 'stock', 'unit'].some(k => req.body[k] !== undefined)) {
+    // Older screens: change the first live option instead
+    const first = existing.units.filter(u => u.isActive).sort((a, b) => a.sortOrder - b.sortOrder)[0]
+    if (first) {
+      const result = cleanUnits([{
+        id: first.id,
+        label: req.body.unit !== undefined
+          ? String(req.body.unit).replace(/^per\s+/i, '').trim() || first.label
+          : first.label,
+        price: req.body.price !== undefined ? req.body.price : first.price,
+        comparePrice: req.body.comparePrice !== undefined ? req.body.comparePrice : first.comparePrice,
+        stock: req.body.stock !== undefined ? req.body.stock : first.stock,
+      }])
+      if (result.error) return res.status(400).json({ error: result.error })
+      const others = existing.units
+        .filter(u => u.isActive && u.id !== first.id)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((u, i) => ({ ...u, sortOrder: i + 1 }))
+      units = [...result.units, ...others]
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.product.update({
+      where: { id: req.params.id },
+      data: {
+        ...(name && { name: String(name).trim() }),
+        ...(description !== undefined && { description }),
+        ...(category && { category }),
+        ...(sku !== undefined && { sku }),
+        ...(images && { images }),
+        ...(availableHalls && { availableHalls }),
+        ...(flashDeal !== undefined && { flashDeal }),
+        ...(isActive !== undefined && { isActive }),
+      },
+    })
+
+    if (units) {
+      const incomingIds = new Set(units.filter(u => u.id).map(u => u.id))
+
+      // Options the seller removed are hidden, not deleted, so old orders and carts still make sense
+      const removed = existing.units.filter(u => u.isActive && !incomingIds.has(u.id))
+      if (removed.length > 0) {
+        await tx.productUnit.updateMany({
+          where: { id: { in: removed.map(u => u.id) } },
+          data: { isActive: false },
+        })
+      }
+
+      for (const u of units) {
+        const data = {
+          label: u.label,
+          price: u.price,
+          comparePrice: u.comparePrice,
+          stock: u.stock,
+          sortOrder: u.sortOrder,
+          isActive: true,
+        }
+        if (u.id) {
+          await tx.productUnit.update({ where: { id: u.id }, data })
+        } else {
+          await tx.productUnit.create({ data: { ...data, productId: req.params.id } })
+        }
+      }
+
+      await syncProductMirror(tx, req.params.id)
+    }
+  })
+
+  const product = await prisma.product.findUnique({
     where: { id: req.params.id },
-    data: {
-      ...(name && { name }),
-      ...(description !== undefined && { description }),
-      ...(category && { category }),
-      ...(unit !== undefined && { unit }),
-      ...(sku !== undefined && { sku }),
-      ...(price !== undefined && { price: Number(price) }),
-      ...(comparePrice !== undefined && { comparePrice: comparePrice ? Number(comparePrice) : null }),
-      ...(stock !== undefined && { stock: Number(stock) }),
-      ...(images && { images }),
-      ...(availableHalls && { availableHalls }),
-      ...(flashDeal !== undefined && { flashDeal }),
-      ...(isActive !== undefined && { isActive }),
-    },
+    include: { units: UNITS_INCLUDE },
   })
 
   res.json({ product })
 }))
-
 
 // DELETE /api/products/:id
 // Vendor only — soft delete (sets isActive false, keeps order history intact)

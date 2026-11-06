@@ -130,9 +130,6 @@ model Vendor {
   products     Product[]
   orders       Order[]
   reviews      Review[]
-
-    latitude      Float?
-  longitude     Float?
   deliveryAreas String[] @default([])
 
   @@index([latitude, longitude])
@@ -181,10 +178,26 @@ model Product {
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-
+  
   orderItems     OrderItem[]
+  units ProductUnit[]
 
   @@map("products")
+}
+
+model ProductUnit {
+  id           String   @id @default(cuid())
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  label        String
+  price        Int
+  comparePrice Int?
+  stock        Int      @default(0)
+  sortOrder    Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  @@index([productId])
 }
 
 // ─────────────── ORDER ───────────────
@@ -258,6 +271,9 @@ model OrderItem {
   price     Int
   quantity  Int
 
+productUnitId String?
+  unitLabel     String?
+  
   @@map("order_items")
 }
 
