@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import VendorLayout from '../../components/vendor/VendorLayout'
+import OrderCodeCard from '../../components/orders/OrderCodeCard'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import api from '../../lib/axios'
+import { toast } from '../../store/toastStore'
 
 const STATUS_STYLE = {
   PLACED: { label: 'Placed', color: '#D97706', bg: '#FFFBEB' },
@@ -45,7 +47,7 @@ export default function HallDelivery() {
       await fetchOrders()
     } catch (err) {
       console.error(err)
-      alert(err.response?.data?.error || 'Failed to confirm order.')
+      toast.error(err.response?.data?.error || 'Failed to confirm order.')
     } finally {
       setConfirming(null)
     }
@@ -55,10 +57,11 @@ export default function HallDelivery() {
     setConfirming(orderId)
     try {
       await api.post(`/orders/${orderId}/ready-for-pickup`)
+      toast.success('Order is ready. Your pickup code is shown on the order.')
       await fetchOrders()
     } catch (err) {
       console.error(err)
-      alert(err.response?.data?.error || 'Failed to mark ready.')
+      toast.error(err.response?.data?.error || 'Failed to mark ready.')
     } finally {
       setConfirming(null)
     }
@@ -67,11 +70,11 @@ export default function HallDelivery() {
   const activeOrders = orders.filter(o => ACTIVE_STATUSES.includes(o.status))
   const completedOrders = orders.filter(o => !ACTIVE_STATUSES.includes(o.status))
 
-  // Group active orders by hall
-  const byHall = activeOrders.reduce((acc, order) => {
-    const hall = order.deliveryHall || 'Unknown Hall'
-    if (!acc[hall]) acc[hall] = []
-    acc[hall].push(order)
+  // Group active orders by delivery location
+  const byPlace = activeOrders.reduce((acc, order) => {
+    const place = order.deliveryHall || 'Unknown location'
+    if (!acc[place]) acc[place] = []
+    acc[place].push(order)
     return acc
   }, {})
 
@@ -79,7 +82,7 @@ export default function HallDelivery() {
   const totalInTransit = activeOrders.filter(o => ['ASSIGNED_TO_RIDER', 'PICKED_UP'].includes(o.status)).length
 
   return (
-    <VendorLayout searchPlaceholder="Search orders, halls, or IDs...">
+    <VendorLayout searchPlaceholder="Search orders, places, or IDs...">
       <div style={{
         display: 'grid',
         gridTemplateColumns: isMobile ? '1fr' : '1fr 220px',
@@ -99,7 +102,7 @@ export default function HallDelivery() {
               backgroundColor: 'rgba(190,134,75,0.1)',
             }} />
             <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 900, margin: '0 0 4px', color: '#1D1D1D' }}>
-              Hall Deliveries
+              Deliveries
             </h1>
             <p style={{ fontSize: 13, color: '#7F766B', margin: '0 0 16px', lineHeight: 1.5 }}>
               Confirm and prepare orders. Riders handle campus delivery.
@@ -129,7 +132,9 @@ export default function HallDelivery() {
           }}>
             <span style={{ fontSize: 16, flexShrink: 0 }}>🛵</span>
             <p style={{ fontSize: 12, color: '#1D4ED8', margin: 0, lineHeight: 1.6 }}>
-              <strong>Rider-handled delivery:</strong> Once you mark an order as Ready for Pickup, our campus riders will claim and deliver it to the student's hall gate. You only need to prepare and hand off.
+              <strong>Rider-handled delivery:</strong> Once you mark an order as Ready for Pickup, a campus rider will claim it.
+              When they arrive, give them the <strong>6-digit pickup code</strong> shown on the order. They must enter it to
+              collect the order.
             </p>
           </div>
 
@@ -143,7 +148,7 @@ export default function HallDelivery() {
               <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
               <p style={{ fontSize: 13, color: '#9C9488' }}>Loading orders...</p>
             </div>
-          ) : Object.keys(byHall).length === 0 ? (
+          ) : Object.keys(byPlace).length === 0 ? (
             <div style={{
               backgroundColor: 'white', border: '1px solid rgba(0,0,0,0.07)',
               borderRadius: 12, padding: '48px', textAlign: 'center',
@@ -151,13 +156,13 @@ export default function HallDelivery() {
               <p style={{ fontSize: 36, marginBottom: 12 }}>📭</p>
               <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 8 }}>No active orders</h3>
               <p style={{ fontSize: 13, color: '#9C9488' }}>
-                New orders will appear here when students place them.
+                New orders will appear here when students place and pay for them.
               </p>
             </div>
           ) : (
-            Object.entries(byHall).map(([hall, hallOrders]) => (
+            Object.entries(byPlace).map(([place, placeOrders]) => (
               <div
-                key={hall}
+                key={place}
                 style={{
                   backgroundColor: 'white',
                   border: '1px solid rgba(0,0,0,0.07)',
@@ -165,7 +170,7 @@ export default function HallDelivery() {
                   marginBottom: 16,
                 }}
               >
-                {/* Hall header */}
+                {/* Location header */}
                 <div style={{
                   padding: '14px 20px',
                   borderBottom: '1px solid rgba(0,0,0,0.06)',
@@ -173,11 +178,11 @@ export default function HallDelivery() {
                   backgroundColor: '#F7F4EF',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 18 }}>🏛</span>
+                    <span style={{ fontSize: 18 }}>📍</span>
                     <div>
-                      <p style={{ fontSize: 14, fontWeight: 800, margin: 0, color: '#1D1D1D' }}>{hall}</p>
+                      <p style={{ fontSize: 14, fontWeight: 800, margin: 0, color: '#1D1D1D' }}>{place}</p>
                       <p style={{ fontSize: 11, color: '#9C9488', margin: 0 }}>
-                        {hallOrders.length} active order{hallOrders.length !== 1 ? 's' : ''}
+                        {placeOrders.length} active order{placeOrders.length !== 1 ? 's' : ''}
                       </p>
                     </div>
                   </div>
@@ -185,14 +190,14 @@ export default function HallDelivery() {
                     fontSize: 10, fontWeight: 800, padding: '4px 10px',
                     backgroundColor: '#BE864B', color: 'white', borderRadius: 6,
                   }}>
-                    {hallOrders.length} PENDING
+                    {placeOrders.length} ACTIVE
                   </span>
                 </div>
 
                 {/* Orders */}
-                {hallOrders.map((order, i) => {
+                {placeOrders.map((order, i) => {
                   const st = STATUS_STYLE[order.status] || STATUS_STYLE.PLACED
-                  const isLast = i === hallOrders.length - 1
+                  const isLast = i === placeOrders.length - 1
                   const isConfirming = confirming === order.id
 
                   return (
@@ -236,7 +241,7 @@ export default function HallDelivery() {
                       }}>
                         {order.items?.map((item, idx) => (
                           <p key={idx} style={{ fontSize: 12, color: '#5A5550', margin: idx < order.items.length - 1 ? '0 0 4px' : 0 }}>
-                              {item.quantity}x {item.name}{item.unitLabel ? ` (${item.unitLabel})` : ''}
+                            {item.quantity}x {item.name}{item.unitLabel ? ` (${item.unitLabel})` : ''}
                           </p>
                         ))}
                       </div>
@@ -274,6 +279,10 @@ export default function HallDelivery() {
                         </button>
                       )}
 
+                      {['READY_FOR_PICKUP', 'ASSIGNED_TO_RIDER'].includes(order.status) && (
+                        <OrderCodeCard orderId={order.id} role="vendor" status={order.status} />
+                      )}
+
                       {['READY_FOR_PICKUP', 'ASSIGNED_TO_RIDER', 'PICKED_UP'].includes(order.status) && (
                         <div style={{
                           padding: '10px 14px', backgroundColor: '#F0FDF4',
@@ -281,7 +290,11 @@ export default function HallDelivery() {
                           fontSize: 12, color: '#166534', fontWeight: 600,
                           textAlign: 'center',
                         }}>
-                          🛵 Rider handling delivery — no action needed
+                          {order.status === 'READY_FOR_PICKUP'
+                            ? '🛵 Waiting for a rider to claim this order'
+                            : order.status === 'ASSIGNED_TO_RIDER'
+                              ? '🛵 A rider is on the way. Give them the pickup code.'
+                              : '🛵 Rider has collected it and is delivering'}
                         </div>
                       )}
                     </div>
@@ -348,11 +361,11 @@ export default function HallDelivery() {
               DELIVERY FLOW
             </p>
             {[
-              { step: '1', label: 'Order placed', desc: 'Student pays via Paystack', done: true },
+              { step: '1', label: 'Order paid', desc: 'Held safely in escrow', done: true },
               { step: '2', label: 'You confirm', desc: 'Accept and start preparing', done: false },
-              { step: '3', label: 'Mark ready', desc: 'Items packed, ready for rider', done: false },
-              { step: '4', label: 'Rider picks up', desc: 'Campus rider collects', done: false },
-              { step: '5', label: 'Delivered', desc: 'Student confirms receipt', done: false },
+              { step: '3', label: 'Mark ready', desc: 'Items packed, pickup code made', done: false },
+              { step: '4', label: 'Rider collects', desc: 'Give them the pickup code', done: false },
+              { step: '5', label: 'Delivered', desc: 'Student gives their code, then confirms', done: false },
             ].map((s, i, arr) => (
               <div key={s.step} style={{ display: 'flex', gap: 10, marginBottom: i < arr.length - 1 ? 12 : 0 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>

@@ -5,6 +5,7 @@ import Navbar from '../../components/common/Navbar'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import api from '../../lib/axios'
 import PayNowButton from '../../components/orders/PayNowButton'
+import OrderCodeCard from '../../components/orders/OrderCodeCard'
 
 const STATUS_TO_STEP = {
   PLACED: 0,
@@ -132,7 +133,7 @@ export default function OrderDetail() {
     CANCELLED: { label: 'CANCELLED', color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
   }[order.status] || { label: order.status, color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' }
 
-    const unpaid =
+  const unpaid =
     order.paymentStatus === 'PENDING' &&
     order.status === 'PLACED' &&
     order.paymentMethod !== 'PAY_ON_DELIVERY'
@@ -206,7 +207,8 @@ export default function OrderDetail() {
           </div>
         </div>
 
-                <PayNowButton order={order} />
+        <PayNowButton order={order} />
+        <OrderCodeCard orderId={order.id} role="buyer" status={order.status} />
 
         {/* Order Progress */}
         <div style={cardStyle}>
@@ -327,7 +329,7 @@ export default function OrderDetail() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
               <ShieldCheck size={13} color="#BE864B" />
               <span style={{ fontSize: 11, color: '#7F766B' }}>
-                               {paymentLine(order)}
+                {paymentLine(order)}
               </span>
             </div>
           </div>
