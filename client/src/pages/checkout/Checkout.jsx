@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link, Navigate } from 'react-router-dom'
 import {
   ShoppingCart, User, ShieldCheck, AlertCircle, ArrowLeft, Clock,
-  Plus, Minus, Trash2, Bookmark,
+  Plus, Minus, Trash2, Bookmark, Store,
 } from 'lucide-react'
 import useCartStore from '../../store/cartStore'
 import useAuthStore from '../../store/authStore'
 import useDeliveryLocation from '../../store/deliveryLocationStore'
+import { groupByStore } from '../../lib/cartGroups'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import api from '../../lib/axios'
 import { toast } from '../../store/toastStore'
@@ -118,8 +119,10 @@ function ReviewRow({ label, value }) {
   )
 }
 
-// Editable list of what is being bought (review step)
-function ItemsCard({ items, addMoreTo, onQty, onRemove, onSave }) {
+// Editable list of what is being bought, grouped by store (review step)
+function ItemsCard({ groups, onQty, onRemove, onSave }) {
+  const count = groups.reduce((n, g) => n + g.items.length, 0)
+
   const round = {
     width: 26, height: 26, borderRadius: '50%',
     border: '1.5px solid #E4DDD3', backgroundColor: 'white',
@@ -145,101 +148,124 @@ function ItemsCard({ items, addMoreTo, onQty, onRemove, onSave }) {
         alignItems: 'center', marginBottom: 12,
       }}>
         <h3 style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', margin: 0, color: '#9C9488' }}>
-          YOUR ITEMS ({items.length})
+          YOUR ITEMS ({count})
         </h3>
-        <Link to={addMoreTo} style={{ ...linkBtn, textDecoration: 'none' }}>
+        <Link to="/marketplace" style={{ ...linkBtn, textDecoration: 'none' }}>
           + ADD MORE
         </Link>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {items.map(item => {
-          const problem = problemOf(item)
-          const atMax = typeof item.stock === 'number' && item.qty >= item.stock
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {groups.map(group => (
+          <div key={group.vendorId}>
 
-          return (
-            <div key={item.key} style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              paddingBottom: 14, borderBottom: '1px solid rgba(0,0,0,0.05)',
+            {/* Store */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              backgroundColor: '#F7F4EF', borderRadius: 8, padding: '7px 10px', marginBottom: 12,
             }}>
-              <div style={{
-                width: 46, height: 46, borderRadius: 8, overflow: 'hidden',
-                backgroundColor: '#F0EDE8', flexShrink: 0,
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                fontSize: 12, fontWeight: 800, color: '#1D1D1D',
               }}>
-                {(item.img || item.images?.[0]) && (
-                  <img
-                    src={item.img || item.images[0]}
-                    alt={item.name}
-                    referrerPolicy="no-referrer"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                )}
-              </div>
-
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 2px' }}>
-                  {item.name}{item.unitLabel ? ` (${item.unitLabel})` : ''}
-                </p>
-                <p style={{ fontSize: 11, color: '#9C9488', margin: '0 0 6px' }}>
-                  ₦{item.price.toLocaleString()} each
-                  {item.priceWas && item.priceWas !== item.price && (
-                    <span style={{ color: item.price < item.priceWas ? '#16A34A' : '#B45309', fontWeight: 700 }}>
-                      {' '}· was ₦{item.priceWas.toLocaleString()}
-                    </span>
-                  )}
-                </p>
-                {problem && (
-                  <p style={{ fontSize: 11, fontWeight: 800, color: '#DC2626', margin: '0 0 6px' }}>
-                    {problem}
-                  </p>
-                )}
-                <button onClick={() => onSave(item.key)} style={linkBtn}>
-                  <Bookmark size={11} /> Save for later
-                </button>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-                <p style={{ fontSize: 13, fontWeight: 800, margin: 0 }}>
-                  ₦{(item.price * item.qty).toLocaleString()}
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button
-                    onClick={() => onQty(item.key, item.qty - 1)}
-                    aria-label="Decrease quantity"
-                    style={{ ...round, cursor: 'pointer' }}
-                  >
-                    <Minus size={11} />
-                  </button>
-                  <span style={{ fontSize: 13, fontWeight: 700, minWidth: 16, textAlign: 'center' }}>
-                    {item.qty}
-                  </span>
-                  <button
-                    onClick={() => !atMax && onQty(item.key, item.qty + 1)}
-                    disabled={atMax}
-                    aria-label="Increase quantity"
-                    style={{ ...round, cursor: atMax ? 'not-allowed' : 'pointer', opacity: atMax ? 0.4 : 1 }}
-                  >
-                    <Plus size={11} />
-                  </button>
-                  <button
-                    onClick={() => onRemove(item.key)}
-                    aria-label={`Remove ${item.name}`}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9C9488', display: 'flex', padding: 2 }}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
+                <Store size={12} color="#BE864B" /> {group.storeName}
+              </span>
+              <span style={{ fontSize: 11, color: '#7F766B', fontWeight: 600 }}>
+                Delivery ₦{group.deliveryFee.toLocaleString()}
+              </span>
             </div>
-          )
-        })}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {group.items.map(item => {
+                const problem = problemOf(item)
+                const atMax = typeof item.stock === 'number' && item.qty >= item.stock
+
+                return (
+                  <div key={item.key} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    paddingBottom: 14, borderBottom: '1px solid rgba(0,0,0,0.05)',
+                  }}>
+                    <div style={{
+                      width: 46, height: 46, borderRadius: 8, overflow: 'hidden',
+                      backgroundColor: '#F0EDE8', flexShrink: 0,
+                    }}>
+                      {(item.img || item.images?.[0]) && (
+                        <img
+                          src={item.img || item.images[0]}
+                          alt={item.name}
+                          referrerPolicy="no-referrer"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      )}
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 2px' }}>
+                        {item.name}{item.unitLabel ? ` (${item.unitLabel})` : ''}
+                      </p>
+                      <p style={{ fontSize: 11, color: '#9C9488', margin: '0 0 6px' }}>
+                        ₦{item.price.toLocaleString()} each
+                        {item.priceWas && item.priceWas !== item.price && (
+                          <span style={{ color: item.price < item.priceWas ? '#16A34A' : '#B45309', fontWeight: 700 }}>
+                            {' '}· was ₦{item.priceWas.toLocaleString()}
+                          </span>
+                        )}
+                      </p>
+                      {problem && (
+                        <p style={{ fontSize: 11, fontWeight: 800, color: '#DC2626', margin: '0 0 6px' }}>
+                          {problem}
+                        </p>
+                      )}
+                      <button onClick={() => onSave(item.key)} style={linkBtn}>
+                        <Bookmark size={11} /> Save for later
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                      <p style={{ fontSize: 13, fontWeight: 800, margin: 0 }}>
+                        ₦{(item.price * item.qty).toLocaleString()}
+                      </p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <button
+                          onClick={() => onQty(item.key, item.qty - 1)}
+                          aria-label="Decrease quantity"
+                          style={{ ...round, cursor: 'pointer' }}
+                        >
+                          <Minus size={11} />
+                        </button>
+                        <span style={{ fontSize: 13, fontWeight: 700, minWidth: 16, textAlign: 'center' }}>
+                          {item.qty}
+                        </span>
+                        <button
+                          onClick={() => !atMax && onQty(item.key, item.qty + 1)}
+                          disabled={atMax}
+                          aria-label="Increase quantity"
+                          style={{ ...round, cursor: atMax ? 'not-allowed' : 'pointer', opacity: atMax ? 0.4 : 1 }}
+                        >
+                          <Plus size={11} />
+                        </button>
+                        <button
+                          onClick={() => onRemove(item.key)}
+                          aria-label={`Remove ${item.name}`}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9C9488', display: 'flex', padding: 2 }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
 export default function Checkout() {
-  const { items, clearCart, updateQty, removeItem, saveForLater, refreshCart } = useCartStore()
+  const { items, updateQty, removeItem, saveForLater, refreshCart } = useCartStore()
   const { user } = useAuthStore()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -278,16 +304,12 @@ export default function Checkout() {
     return () => window.removeEventListener('pageshow', onShow)
   }, [])
 
-  const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0)
-  // Uses the vendor's real delivery fee when the cart item has it (falls back to 200
-  // for items added before it was saved). The server calculates the final total.
-  const delivery = items[0]?.vendor?.deliveryFee ?? 200
-  const total = subtotal + delivery
+  // One group per store; each store has its own delivery fee. The server works out the final charge.
+  const { groups, subtotal, delivery, total } = groupByStore(items)
+  const manyStores = groups.length > 1
 
   const problems = items.filter(i => problemOf(i))
-  const multiVendor = new Set(items.map(i => i.vendorId)).size > 1
-  const blocked = problems.length > 0 || multiVendor
-  const addMoreTo = items[0]?.vendorId ? `/vendor/${items[0].vendorId}` : '/marketplace'
+  const blocked = problems.length > 0
 
   const inp = {
     width: '100%', padding: '11px 14px',
@@ -338,13 +360,12 @@ export default function Checkout() {
     setStep('processing')
     setLoading(true)
 
-    let order = null
+    let created = null
     try {
-      const vendorId = items[0]?.vendorId
-      if (!vendorId) throw new Error('Cart items are missing vendor info.')
+      if (items.some(i => !i.vendorId)) throw new Error('Some cart items are missing store info. Please remove them and add them again.')
 
-      const res = await api.post('/orders', {
-        vendorId,
+      // One request: the server makes one order per store and one payment for all of them
+      const res = await api.post('/orders/checkout', {
         items: items.map(item => ({
           productId: item.id,
           unitId: item.unitId || null,
@@ -358,24 +379,24 @@ export default function Checkout() {
         recipientPhone: form.phone,
         paymentMethod: form.paymentMethod, // 'PAYSTACK' | 'OPAY'
       })
-      order = res.data.order
+      created = res.data
 
-      // Go to the payment page. The cart is cleared once payment is confirmed.
+      // Pay once for everything. The cart is cleared once payment is confirmed.
       if (form.paymentMethod === 'OPAY') {
-        const payRes = await api.post('/payments/opay/initialize', { orderId: order.id })
+        const payRes = await api.post('/payments/opay/initialize', { groupId: created.group.id })
         window.location.href = payRes.data.cashierUrl
       } else {
-        const payRes = await api.post('/payments/initialize', { orderId: order.id })
+        const payRes = await api.post('/payments/initialize', { groupId: created.group.id })
         window.location.href = payRes.data.authorizationUrl
       }
       return
     } catch (err) {
       console.error(err)
 
-      // The order exists but the payment page would not open: let them retry from the order page
-      if (order) {
-        toast.error('Your order is saved, but the payment page would not open. You can complete payment from your order.')
-        navigate(`/orders/${order.id}`)
+      // The orders exist but the payment page would not open: let them retry from their orders
+      if (created) {
+        toast.error('Your orders are saved, but the payment page would not open. You can complete payment from your orders.')
+        navigate(created.orders.length > 1 ? '/orders' : `/orders/${created.orders[0].id}`)
         return
       }
 
@@ -404,7 +425,7 @@ export default function Checkout() {
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
         <div style={{ textAlign: 'center' }}>
           <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: '#1D1D1D' }}>
-            Processing your order...
+            Processing your {manyStores ? 'orders' : 'order'}...
           </h2>
           <p style={{ fontSize: 14, color: '#9C9488' }}>
             {form.paymentMethod === 'OPAY' ? 'Taking you to OPay...' : 'Taking you to Paystack...'}
@@ -418,7 +439,7 @@ export default function Checkout() {
   // (After the processing block on purpose, so this doesn't fire mid-payment.)
   if (items.length === 0) return <Navigate to="/cart" replace />
 
-  const attentionBox = (blocked && (
+  const attentionBox = blocked && (
     <div style={{
       display: 'flex', gap: 8, alignItems: 'flex-start',
       padding: '11px 14px', backgroundColor: '#FEF2F2',
@@ -427,12 +448,11 @@ export default function Checkout() {
     }}>
       <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 2 }} />
       <span>
-        {multiVendor
-          ? 'Your cart has items from more than one store. Go back to the cart and save the others for later.'
-          : 'Some items are sold out or over the available stock. Fix them in the Your items list on the review step, or in your cart.'}
+        Some items are sold out or over the available stock. Fix them in the Your items list on the review step,
+        or in your cart.
       </span>
     </div>
-  ))
+  )
 
   return (
     <div style={{
@@ -507,6 +527,22 @@ export default function Checkout() {
             {step === 'review' ? 'CONFIRM BEFORE PAYMENT' : 'SECURE YOUR CAMPUS ESSENTIALS'}
           </p>
         </div>
+
+        {/* Several stores: one payment */}
+        {manyStores && (
+          <div style={{
+            display: 'flex', gap: 10, alignItems: 'flex-start',
+            backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0',
+            borderRadius: 10, padding: '12px 14px', marginBottom: 18,
+            fontSize: 12, color: '#166534', lineHeight: 1.6,
+          }}>
+            <Store size={15} style={{ flexShrink: 0, marginTop: 2 }} />
+            <span>
+              This checkout has <strong>{groups.length} stores</strong>. You pay <strong>once</strong>, and each
+              store prepares and delivers its own order.
+            </span>
+          </div>
+        )}
 
         {/* Progress */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 24 }}>
@@ -669,7 +705,7 @@ export default function Checkout() {
                     <ShieldCheck size={13} color="#BE864B" style={{ flexShrink: 0, marginTop: 2 }} />
                     <p style={{ fontSize: 11, color: '#7F766B', margin: 0, lineHeight: 1.6 }}>
                       <strong style={{ color: '#1D1D1D' }}>Buylence Escrow:</strong>{' '}
-                      Your payment is held safely and only released to the vendor after you confirm delivery.
+                      Your payment is held safely and only released to a vendor after you confirm that delivery.
                     </p>
                   </div>
                 </Section>
@@ -708,10 +744,9 @@ export default function Checkout() {
               <>
                 {attentionBox}
 
-                {/* Editable items */}
+                {/* Editable items, by store */}
                 <ItemsCard
-                  items={items}
-                  addMoreTo={addMoreTo}
+                  groups={groups}
                   onQty={updateQty}
                   onRemove={removeItem}
                   onSave={saveForLater}
@@ -743,7 +778,10 @@ export default function Checkout() {
                   }}>
                     <ReviewRow label="Subtotal" value={`₦${subtotal.toLocaleString()}`} />
                     <div style={{ height: 7 }} />
-                    <ReviewRow label="Delivery" value={`₦${delivery.toLocaleString()}`} />
+                    <ReviewRow
+                      label={manyStores ? `Delivery (${groups.length} stores)` : 'Delivery'}
+                      value={`₦${delivery.toLocaleString()}`}
+                    />
                     <div style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                       borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 10, paddingTop: 10,
@@ -767,10 +805,10 @@ export default function Checkout() {
                     How confirmation works
                   </p>
                   <p style={{ fontSize: 11, color: '#7F766B', margin: 0, lineHeight: 1.8 }}>
-                    1. You pay now → money held in escrow<br />
-                    2. Vendor confirms & dispatches<br />
-                    3. You confirm receipt<br />
-                    4. Funds released to vendor
+                    1. You pay once → money held in escrow<br />
+                    2. Each store confirms & dispatches its order<br />
+                    3. You confirm receipt of each delivery<br />
+                    4. Each store is paid after you confirm its delivery
                   </p>
                 </div>
 
@@ -782,8 +820,8 @@ export default function Checkout() {
                 }}>
                   <Clock size={14} color="#B45309" style={{ flexShrink: 0, marginTop: 1 }} />
                   <p style={{ fontSize: 11, color: '#92400E', margin: 0, lineHeight: 1.6 }}>
-                    Your order is held for <strong>{PAYMENT_WINDOW_MINUTES} minutes</strong> while you pay.
-                    If payment isn't completed in time, the order is cancelled and the items go back on sale.
+                    Your {manyStores ? 'orders are' : 'order is'} held for <strong>{PAYMENT_WINDOW_MINUTES} minutes</strong> while you pay.
+                    If payment isn't completed in time, {manyStores ? 'they are' : 'it is'} cancelled and the items go back on sale.
                   </p>
                 </div>
 
@@ -815,7 +853,7 @@ export default function Checkout() {
                     }}
                   >
                     <ShieldCheck size={18} />
-                    PLACE ORDER & PAY SECURELY
+                    PAY ₦{total.toLocaleString()} SECURELY
                   </button>
                 )}
               </>
@@ -834,46 +872,70 @@ export default function Checkout() {
                 ORDER SUMMARY
               </h2>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
-                {items.map((item, i) => (
-                  <div key={item.key || item.id || i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{
-                      width: 38, height: 38, borderRadius: 7,
-                      backgroundColor: '#F0EDE8', flexShrink: 0,
-                      overflow: 'hidden',
-                    }}>
-                      {(item.img || item.images?.[0]) && (
-                        <img
-                          src={item.img || item.images[0]}
-                          alt={item.name}
-                          referrerPolicy="no-referrer"
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                      )}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 12, fontWeight: 600, margin: 0 }}>
-                        {item.name}{item.unitLabel ? ` (${item.unitLabel})` : ''}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 14 }}>
+                {groups.map(group => (
+                  <div key={group.vendorId}>
+                    {manyStores && (
+                      <p style={{
+                        display: 'flex', alignItems: 'center', gap: 5,
+                        fontSize: 10, fontWeight: 800, letterSpacing: '0.06em',
+                        color: '#BE864B', margin: '0 0 8px',
+                      }}>
+                        <Store size={11} /> {group.storeName.toUpperCase()}
                       </p>
-                      <p style={{ fontSize: 10, color: '#9C9488', margin: 0 }}>×{item.qty}</p>
+                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {group.items.map((item, i) => (
+                        <div key={item.key || item.id || i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{
+                            width: 38, height: 38, borderRadius: 7,
+                            backgroundColor: '#F0EDE8', flexShrink: 0,
+                            overflow: 'hidden',
+                          }}>
+                            {(item.img || item.images?.[0]) && (
+                              <img
+                                src={item.img || item.images[0]}
+                                alt={item.name}
+                                referrerPolicy="no-referrer"
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                            )}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: 12, fontWeight: 600, margin: 0 }}>
+                              {item.name}{item.unitLabel ? ` (${item.unitLabel})` : ''}
+                            </p>
+                            <p style={{ fontSize: 10, color: '#9C9488', margin: 0 }}>×{item.qty}</p>
+                          </div>
+                          <span style={{ fontSize: 12, fontWeight: 700 }}>
+                            ₦{(item.price * item.qty).toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                    <span style={{ fontSize: 12, fontWeight: 700 }}>
-                      ₦{(item.price * item.qty).toLocaleString()}
-                    </span>
                   </div>
                 ))}
               </div>
 
               <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 12, marginBottom: 12 }}>
-                {[
-                  { label: 'SUBTOTAL', value: `₦${subtotal.toLocaleString()}` },
-                  { label: 'DELIVERY', value: `₦${delivery.toLocaleString()}` },
-                ].map(r => (
-                  <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 7 }}>
-                    <span style={{ color: '#9C9488', fontWeight: 700, letterSpacing: '0.06em' }}>{r.label}</span>
-                    <span style={{ fontWeight: 600 }}>{r.value}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 7 }}>
+                  <span style={{ color: '#9C9488', fontWeight: 700, letterSpacing: '0.06em' }}>SUBTOTAL</span>
+                  <span style={{ fontWeight: 600 }}>₦{subtotal.toLocaleString()}</span>
+                </div>
+
+                {manyStores ? (
+                  groups.map(g => (
+                    <div key={g.vendorId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 7 }}>
+                      <span style={{ color: '#9C9488', fontWeight: 600 }}>Delivery · {g.storeName}</span>
+                      <span style={{ fontWeight: 600 }}>₦{g.deliveryFee.toLocaleString()}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 7 }}>
+                    <span style={{ color: '#9C9488', fontWeight: 700, letterSpacing: '0.06em' }}>DELIVERY</span>
+                    <span style={{ fontWeight: 600 }}>₦{delivery.toLocaleString()}</span>
                   </div>
-                ))}
+                )}
               </div>
 
               <div style={{
