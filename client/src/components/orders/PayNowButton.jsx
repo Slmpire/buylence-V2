@@ -11,7 +11,7 @@ export default function PayNowButton({ order }) {
   const [loading, setLoading] = useState(false)
   const [now, setNow] = useState(Date.now())
 
-  // Tick once a minute so the countdown stays fresh
+  // Tick so the countdown stays fresh
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30000)
     return () => clearInterval(timer)
@@ -26,6 +26,11 @@ export default function PayNowButton({ order }) {
 
   if (!needsPayment) return null
 
+  // An order that is part of a bigger checkout is paid for together with the others
+  const group = order.paymentGroup
+  const orderCount = group?._count?.orders || 1
+  const amount = group?.total ?? order.total
+
   const deadline = new Date(order.createdAt).getTime() + WINDOW_MINUTES * 60 * 1000
   const minutesLeft = Math.ceil((deadline - now) / 60000)
   const provider = method === 'OPAY' ? 'OPay' : 'Paystack'
@@ -33,11 +38,12 @@ export default function PayNowButton({ order }) {
   async function pay() {
     setLoading(true)
     try {
+      const body = group ? { groupId: group.id } : { orderId: order.id }
       if (method === 'OPAY') {
-        const res = await api.post('/payments/opay/initialize', { orderId: order.id })
+        const res = await api.post('/payments/opay/initialize', body)
         window.location.href = res.data.cashierUrl
       } else {
-        const res = await api.post('/payments/initialize', { orderId: order.id })
+        const res = await api.post('/payments/initialize', body)
         window.location.href = res.data.authorizationUrl
       }
     } catch (err) {
@@ -63,9 +69,10 @@ export default function PayNowButton({ order }) {
       </div>
 
       <p style={{ fontSize: 12, color: '#92400E', margin: '0 0 14px', lineHeight: 1.6 }}>
+        {orderCount > 1 && `This payment covers all ${orderCount} orders from your checkout. `}
         {minutesLeft > 0
-          ? `Pay within ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'} or this order is cancelled and the items go back on sale.`
-          : 'The payment time is almost up. Pay now, or this order will be cancelled shortly.'}
+          ? `Pay within ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'} or ${orderCount > 1 ? 'these orders are' : 'this order is'} cancelled and the items go back on sale.`
+          : 'The payment time is almost up. Pay now, or the order will be cancelled shortly.'}
         {' '}Your money is held in escrow until you confirm delivery.
       </p>
 
@@ -83,7 +90,7 @@ export default function PayNowButton({ order }) {
         }}
       >
         {loading && <Spinner size={14} color="white" />}
-        {loading ? 'Opening payment…' : `Complete payment with ${provider} — ₦${order.total.toLocaleString()}`}
+        {loading ? 'Opening payment…' : `Complete payment with ${provider}: ₦${amount.toLocaleString()}`}
       </button>
     </div>
   )

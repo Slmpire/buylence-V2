@@ -40,6 +40,14 @@ async function cancelExpiredUnpaidOrders() {
           touched.add(item.productId)
         }
         for (const productId of touched) await syncProductMirror(tx, productId)
+
+        // The one payment covering this order can no longer be paid
+        if (order.paymentGroupId) {
+          await tx.paymentGroup.updateMany({
+            where: { id: order.paymentGroupId, status: 'PENDING' },
+            data: { status: 'EXPIRED' },
+          })
+        }
         return true
       })
 

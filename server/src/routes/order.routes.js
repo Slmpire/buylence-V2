@@ -13,6 +13,8 @@ const { cancelExpiredUnpaidOrders } = require('../services/orderExpiry.service')
 
 class StockError extends Error {}
 
+const MAX_STORES_PER_CHECKOUT = 5
+
 function generateOrderNumber() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   let suffix = ''
@@ -108,21 +110,47 @@ router.get('/rider/my-deliveries', authenticate, requireRole('RIDER'), asyncHand
   res.json({ orders })
 }))
 
+// GET /api/orders/group/:id — one payment and all the orders it covers (buyer or admin)
+router.get('/group/:id', authenticate, asyncHandler(async (req, res) => {
+  await cancelExpiredUnpaidOrders()
+
+  const group = await prisma.paymentGroup.findUnique({
+    where: { id: req.params.id },
+    include: {
+      orders: {
+        include: {
+          items: { include: { product: { select: { name: true, images: true } } } },
+          vendor: { select: { storeName: true, hall: true, logoUrl: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+  })
+
+  if (!group) return res.status(404).json({ error: 'Payment not found.' })
+  if (group.buyerId !== req.user.id && req.user.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Access denied.' })
+  }
+
+  res.json({ group, orders: group.orders })
+}))
+
 // ─────────────────────────────────────────────────────
 // BUYER ROUTES
 // ─────────────────────────────────────────────────────
 
-// POST /api/orders
-// items: [{ productId, unitId?, quantity }]  (no unitId = the product's first option)
+// POST /api/orders/checkout   (and the older POST /api/orders, which does the same thing)
+// items: [{ productId, unitId?, quantity }]  — products may come from several stores.
+// One order is created per store, all covered by a single payment group.
 // Every order is paid online and held in escrow, so paymentMethod is PAYSTACK or OPAY.
-router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(async (req, res) => {
+async function createCheckout(req, res) {
   const {
-    vendorId, items, deliveryHall, deliveryRoom,
+    items, deliveryHall, deliveryRoom,
     recipientName, recipientPhone, paymentMethod,
   } = req.body
 
-  if (!vendorId || !items?.length || !deliveryHall || !recipientName || !recipientPhone || !paymentMethod) {
-    return res.status(400).json({ error: 'vendorId, items, deliveryHall, recipientName, recipientPhone, and paymentMethod are required.' })
+  if (!items?.length || !deliveryHall || !recipientName || !recipientPhone || !paymentMethod) {
+    return res.status(400).json({ error: 'items, deliveryHall, recipientName, recipientPhone, and paymentMethod are required.' })
   }
   if (!['PAYSTACK', 'OPAY'].includes(paymentMethod)) {
     return res.status(400).json({ error: 'Please pay online with Paystack or OPay. Your money is held safely in escrow until delivery.' })
@@ -139,16 +167,16 @@ router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(asyn
 
   const productIds = [...new Set(requested.map(i => i.productId))]
   const products = await prisma.product.findMany({
-    where: { id: { in: productIds }, isActive: true, vendorId },
-    include: { units: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } } },
+    where: { id: { in: productIds }, isActive: true },
+    include: {
+      units: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
+      vendor: { select: { id: true, storeName: true, deliveryFee: true } },
+    },
   })
 
   if (products.length !== productIds.length) {
     return res.status(400).json({ error: 'One or more products are unavailable.' })
   }
-
-  const vendor = await prisma.vendor.findUnique({ where: { id: vendorId } })
-  if (!vendor) return res.status(404).json({ error: 'Vendor not found.' })
 
   // Match every requested line to a real option and price it from that option
   const lines = []
@@ -179,71 +207,104 @@ router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(asyn
     }
   }
 
-  const orderItems = lines.map(({ product, unit, quantity }) => ({
-    productId: product.id,
-    productUnitId: unit.id,
-    unitLabel: unit.label,
-    name: product.name,
-    price: unit.price,
-    quantity,
-  }))
+  // One order per store
+  const byVendor = new Map()
+  for (const line of lines) {
+    const v = line.product.vendor
+    if (!byVendor.has(v.id)) byVendor.set(v.id, { vendor: v, lines: [] })
+    byVendor.get(v.id).lines.push(line)
+  }
+  if (byVendor.size > MAX_STORES_PER_CHECKOUT) {
+    return res.status(400).json({ error: `You can order from up to ${MAX_STORES_PER_CHECKOUT} stores at once.` })
+  }
 
-  const subtotal = orderItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
-  const deliveryFee = vendor.deliveryFee
-  const total = subtotal + deliveryFee
+  const prepared = [...byVendor.values()].map(({ vendor, lines: vendorLines }) => {
+    const orderItems = vendorLines.map(({ product, unit, quantity }) => ({
+      productId: product.id,
+      productUnitId: unit.id,
+      unitLabel: unit.label,
+      name: product.name,
+      price: unit.price,
+      quantity,
+    }))
+    const subtotal = orderItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
+    const deliveryFee = vendor.deliveryFee
+    return { vendor, orderItems, subtotal, deliveryFee, total: subtotal + deliveryFee }
+  })
+  const groupTotal = prepared.reduce((sum, p) => sum + p.total, 0)
 
-  let order
+  let result
   try {
-    order = await prisma.$transaction(async (tx) => {
-      // Take the stock first. If someone else bought the last one in the meantime, this fails cleanly.
+    result = await prisma.$transaction(async (tx) => {
+      // Take all the stock first. If someone else bought the last one meanwhile, this fails cleanly.
       for (const [unitId, qty] of needed) {
-        const result = await tx.productUnit.updateMany({
+        const taken = await tx.productUnit.updateMany({
           where: { id: unitId, isActive: true, stock: { gte: qty } },
           data: { stock: { decrement: qty } },
         })
-        if (result.count === 0) {
+        if (taken.count === 0) {
           throw new StockError('Some items just sold out. Please refresh your cart and try again.')
         }
       }
       for (const productId of productIds) await syncProductMirror(tx, productId)
 
-      return tx.order.create({
-        data: {
-          orderNumber: generateOrderNumber(),
-          buyerId: req.user.id,
-          vendorId,
-          deliveryHall,
-          deliveryRoom,
-          recipientName,
-          recipientPhone,
-          subtotal,
-          deliveryFee,
-          total,
-          paymentMethod,
-          paymentStatus: 'PENDING', // becomes HELD_IN_ESCROW only once the payment is verified
-          paystackRef: null,
-          status: 'PLACED',
-          items: { create: orderItems },
-        },
-        include: { items: true, vendor: { select: { storeName: true, hall: true } } },
+      const group = await tx.paymentGroup.create({
+        data: { buyerId: req.user.id, paymentMethod, total: groupTotal },
       })
+
+      const orders = []
+      for (const p of prepared) {
+        const order = await tx.order.create({
+          data: {
+            orderNumber: generateOrderNumber(),
+            buyerId: req.user.id,
+            vendorId: p.vendor.id,
+            deliveryHall,
+            deliveryRoom,
+            recipientName,
+            recipientPhone,
+            subtotal: p.subtotal,
+            deliveryFee: p.deliveryFee,
+            total: p.total,
+            paymentMethod,
+            paymentStatus: 'PENDING', // becomes HELD_IN_ESCROW only once the payment is verified
+            paystackRef: null,
+            status: 'PLACED',
+            paymentGroupId: group.id,
+            items: { create: p.orderItems },
+          },
+          include: { items: true, vendor: { select: { storeName: true, hall: true } } },
+        })
+        orders.push(order)
+      }
+
+      return { group, orders }
     })
   } catch (err) {
     if (err instanceof StockError) return res.status(409).json({ error: err.message })
     throw err
   }
 
-  // Tell the buyer. The store is told once the payment is confirmed.
+  const { group, orders } = result
+  const stores = orders.map(o => o.vendor.storeName)
+
+  // Tell the buyer. Each store is told once the payment is confirmed.
   notifyUser(req.user.id, {
-    title: `Order Placed (${order.orderNumber})`,
-    message: `Your order from ${vendor.storeName} is waiting for payment. Complete it soon so we can send it to the store.`,
+    title: orders.length > 1 ? `Orders Placed (${orders.length} stores)` : `Order Placed (${orders[0].orderNumber})`,
+    message: orders.length > 1
+      ? `Your orders from ${stores.join(', ')} are waiting for payment. Complete it soon so we can send them to the stores.`
+      : `Your order from ${stores[0]} is waiting for payment. Complete it soon so we can send it to the store.`,
     type: 'ORDER',
-    link: `/orders/${order.id}`,
+    link: orders.length > 1 ? '/orders' : `/orders/${orders[0].id}`,
     category: 'orderUpdates',
   }).catch(() => {})
 
-  res.status(201).json({ order })
-}))
+  // `order` (the first one) keeps older screens working
+  res.status(201).json({ group, orders, order: orders[0] })
+}
+
+router.post('/checkout', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(createCheckout))
+router.post('/', authenticate, requireRole('BUYER', 'VENDOR'), asyncHandler(createCheckout))
 
 // GET /api/orders — buyer's own orders
 router.get('/', authenticate, asyncHandler(async (req, res) => {
@@ -286,6 +347,9 @@ router.get('/:id', authenticate, asyncHandler(async (req, res) => {
       vendor: { select: { storeName: true, hall: true, logoUrl: true, deliveryFee: true, rating: true } },
       buyer: { select: { fullName: true, phone: true } },
       rider: { select: { user: { select: { fullName: true, phone: true } } } },
+      paymentGroup: {
+        select: { id: true, total: true, status: true, _count: { select: { orders: true } } },
+      },
     },
   })
 
@@ -420,39 +484,67 @@ router.post('/:id/cancel', authenticate, asyncHandler(async (req, res) => {
     return res.status(400).json({ error: `Order cannot be cancelled at status: ${order.status}.` })
   }
 
-  const updated = await prisma.$transaction(async (tx) => {
-    const cancelled = await tx.order.update({
-      where: { id: order.id },
-      data: {
-        status: 'CANCELLED',
-        paymentStatus: order.paymentStatus === 'HELD_IN_ESCROW' ? 'REFUNDED' : order.paymentStatus,
-      },
+  // An unpaid order that is part of a group is cancelled together with the rest of the group,
+  // because the one payment can no longer be completed
+  let targets = [order]
+  if (order.paymentGroupId && order.paymentStatus === 'PENDING') {
+    const siblings = await prisma.order.findMany({
+      where: { paymentGroupId: order.paymentGroupId, paymentStatus: 'PENDING', status: 'PLACED' },
+      include: { items: true },
     })
+    if (siblings.some(s => s.id === order.id)) targets = siblings
+  }
 
-    // Put the stock back on the shelf
+  const updated = await prisma.$transaction(async (tx) => {
+    let requested = null
     const touched = new Set()
-    for (const item of order.items) {
-      if (!item.productUnitId) continue
-      await tx.productUnit.updateMany({
-        where: { id: item.productUnitId },
-        data: { stock: { increment: item.quantity } },
+
+    for (const target of targets) {
+      const cancelled = await tx.order.update({
+        where: { id: target.id },
+        data: {
+          status: 'CANCELLED',
+          paymentStatus: target.paymentStatus === 'HELD_IN_ESCROW' ? 'REFUNDED' : target.paymentStatus,
+        },
       })
-      touched.add(item.productId)
+      if (target.id === order.id) requested = cancelled
+
+      // Put the stock back on the shelf
+      for (const item of target.items) {
+        if (!item.productUnitId) continue
+        await tx.productUnit.updateMany({
+          where: { id: item.productUnitId },
+          data: { stock: { increment: item.quantity } },
+        })
+        touched.add(item.productId)
+      }
     }
     for (const productId of touched) await syncProductMirror(tx, productId)
 
-    return cancelled
+    if (order.paymentGroupId && order.paymentStatus === 'PENDING') {
+      await tx.paymentGroup.updateMany({
+        where: { id: order.paymentGroupId, status: 'PENDING' },
+        data: { status: 'CANCELLED' },
+      })
+    }
+
+    return requested
   })
 
   notifyUser(order.buyerId, {
-    title: `Order Cancelled (${order.orderNumber})`,
-    message: `Your order has been cancelled.`,
+    title: targets.length > 1 ? `Orders Cancelled (${targets.length})` : `Order Cancelled (${order.orderNumber})`,
+    message: targets.length > 1
+      ? 'Your unpaid orders from this checkout were cancelled together.'
+      : 'Your order has been cancelled.',
     type: 'ORDER',
     link: `/orders/${order.id}`,
     category: 'orderUpdates',
   }).catch(() => {})
 
-  res.json({ order: updated, message: 'Order cancelled.' })
+  res.json({
+    order: updated,
+    message: targets.length > 1 ? 'The unpaid orders from this checkout were cancelled together.' : 'Order cancelled.',
+  })
 }))
 
 // POST /api/orders/:id/claim — rider
