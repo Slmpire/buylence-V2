@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { MapPin, Package, CheckCircle, Clock, AlertCircle } from 'lucide-react'
+import { MapPin, Package, AlertCircle, KeyRound } from 'lucide-react'
 import RiderLayout from './RiderLayout'
+import CodeEntryModal from '../../components/orders/CodeEntryModal'
 import api from '../../lib/axios'
+import { toast } from '../../store/toastStore'
 
 const STATUS_STYLE = {
   READY_FOR_PICKUP: { label: 'READY FOR PICKUP', color: '#C2410C', bg: '#FFF7ED', border: '#FED7AA' },
@@ -10,7 +11,7 @@ const STATUS_STYLE = {
   PICKED_UP: { label: 'PICKED UP', color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE' },
 }
 
-function OrderCard({ order, onClaim, onPickUp, onDeliver, claiming, isMobile }) {
+function OrderCard({ order, onClaim, onPickUp, onDeliver, claiming }) {
   const st = STATUS_STYLE[order.status] || STATUS_STYLE.READY_FOR_PICKUP
   const isWorking = claiming === order.id
 
@@ -124,37 +125,61 @@ function OrderCard({ order, onClaim, onPickUp, onDeliver, claiming, isMobile }) 
         )}
 
         {order.status === 'ASSIGNED_TO_RIDER' && (
-          <button
-            onClick={() => onPickUp(order.id)}
-            disabled={isWorking}
-            style={{
-              width: '100%', padding: '12px',
-              backgroundColor: isWorking ? '#E4DDD3' : '#1D1D1D',
-              color: 'white', border: 'none', borderRadius: 8,
-              fontWeight: 700, fontSize: 13,
-              cursor: isWorking ? 'not-allowed' : 'pointer',
-              fontFamily: 'Inter, sans-serif',
-            }}
-          >
-            {isWorking ? 'Updating...' : '📦 CONFIRM PICKED UP FROM VENDOR'}
-          </button>
+          <>
+            <div style={{
+              display: 'flex', gap: 8, alignItems: 'flex-start',
+              backgroundColor: '#F5F3FF', border: '1px solid #DDD6FE',
+              borderRadius: 8, padding: '9px 12px', marginBottom: 10,
+            }}>
+              <KeyRound size={13} color="#7C3AED" style={{ flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 11, color: '#5B21B6', margin: 0, lineHeight: 1.5 }}>
+                Ask <strong>{order.vendor?.storeName || 'the store'}</strong> for the 6-digit pickup code, then tap the button below.
+              </p>
+            </div>
+            <button
+              onClick={() => onPickUp(order)}
+              disabled={isWorking}
+              style={{
+                width: '100%', padding: '12px',
+                backgroundColor: isWorking ? '#E4DDD3' : '#1D1D1D',
+                color: 'white', border: 'none', borderRadius: 8,
+                fontWeight: 700, fontSize: 13,
+                cursor: isWorking ? 'not-allowed' : 'pointer',
+                fontFamily: 'Inter, sans-serif',
+              }}
+            >
+              📦 ENTER PICKUP CODE
+            </button>
+          </>
         )}
 
         {order.status === 'PICKED_UP' && (
-          <button
-            onClick={() => onDeliver(order.id)}
-            disabled={isWorking}
-            style={{
-              width: '100%', padding: '12px',
-              background: isWorking ? '#E4DDD3' : 'linear-gradient(90deg, #166534 0%, #16A34A 100%)',
-              color: 'white', border: 'none', borderRadius: 8,
-              fontWeight: 700, fontSize: 13,
-              cursor: isWorking ? 'not-allowed' : 'pointer',
-              fontFamily: 'Inter, sans-serif',
-            }}
-          >
-            {isWorking ? 'Updating...' : '✅ MARK DELIVERED TO STUDENT'}
-          </button>
+          <>
+            <div style={{
+              display: 'flex', gap: 8, alignItems: 'flex-start',
+              backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE',
+              borderRadius: 8, padding: '9px 12px', marginBottom: 10,
+            }}>
+              <KeyRound size={13} color="#2563EB" style={{ flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 11, color: '#1D4ED8', margin: 0, lineHeight: 1.5 }}>
+                When you reach the customer, ask for their 6-digit delivery code. Hand over the items first, then enter it.
+              </p>
+            </div>
+            <button
+              onClick={() => onDeliver(order)}
+              disabled={isWorking}
+              style={{
+                width: '100%', padding: '12px',
+                background: isWorking ? '#E4DDD3' : 'linear-gradient(90deg, #166534 0%, #16A34A 100%)',
+                color: 'white', border: 'none', borderRadius: 8,
+                fontWeight: 700, fontSize: 13,
+                cursor: isWorking ? 'not-allowed' : 'pointer',
+                fontFamily: 'Inter, sans-serif',
+              }}
+            >
+              ✅ ENTER DELIVERY CODE
+            </button>
+          </>
         )}
       </div>
     </div>
@@ -162,13 +187,15 @@ function OrderCard({ order, onClaim, onPickUp, onDeliver, claiming, isMobile }) 
 }
 
 export default function RiderDashboard() {
-  const navigate = useNavigate()
   const [pool, setPool] = useState([])
   const [active, setActive] = useState([])
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [claiming, setClaiming] = useState(null)
   const [tab, setTab] = useState('pool')
+
+  // Which code box is open: { order, kind: 'pickup' | 'delivery' } or null
+  const [codeBox, setCodeBox] = useState(null)
 
   useEffect(() => {
     fetchData()
@@ -195,36 +222,28 @@ export default function RiderDashboard() {
   async function claimOrder(orderId) {
     setClaiming(orderId)
     try {
-      await api.post(`/orders/${orderId}/claim`)
+      const res = await api.post(`/orders/${orderId}/claim`)
+      toast.success(res.data.message || 'Order claimed.')
       await fetchData()
+      setTab('active')
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to claim order.')
+      toast.error(err.response?.data?.error || 'Failed to claim order.')
     } finally {
       setClaiming(null)
     }
   }
 
-  async function markPickedUp(orderId) {
-    setClaiming(orderId)
+  // Called by the code box. Throws an Error with a readable message when the code is wrong.
+  async function submitCode(code) {
+    const { order, kind } = codeBox
     try {
-      await api.post(`/orders/${orderId}/picked-up`)
+      const path = kind === 'pickup' ? 'picked-up' : 'delivered'
+      const res = await api.post(`/orders/${order.id}/${path}`, { code })
+      toast.success(res.data.message || 'Confirmed.')
+      setCodeBox(null)
       await fetchData()
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to update order.')
-    } finally {
-      setClaiming(null)
-    }
-  }
-
-  async function markDelivered(orderId) {
-    setClaiming(orderId)
-    try {
-      await api.post(`/orders/${orderId}/delivered`)
-      await fetchData()
-    } catch (err) {
-      alert(err.response?.data?.error || 'Failed to update order.')
-    } finally {
-      setClaiming(null)
+      throw new Error(err.response?.data?.error || 'Could not confirm. Please try again.')
     }
   }
 
@@ -338,7 +357,9 @@ export default function RiderDashboard() {
             {pool.map(order => (
               <OrderCard
                 key={order.id} order={order}
-                onClaim={claimOrder} onPickUp={markPickedUp} onDeliver={markDelivered}
+                onClaim={claimOrder}
+                onPickUp={o => setCodeBox({ order: o, kind: 'pickup' })}
+                onDeliver={o => setCodeBox({ order: o, kind: 'delivery' })}
                 claiming={claiming}
               />
             ))}
@@ -360,12 +381,26 @@ export default function RiderDashboard() {
           active.map(order => (
             <OrderCard
               key={order.id} order={order}
-              onClaim={claimOrder} onPickUp={markPickedUp} onDeliver={markDelivered}
+              onClaim={claimOrder}
+              onPickUp={o => setCodeBox({ order: o, kind: 'pickup' })}
+              onDeliver={o => setCodeBox({ order: o, kind: 'delivery' })}
               claiming={claiming}
             />
           ))
         )
       )}
+
+      <CodeEntryModal
+        open={!!codeBox}
+        title={codeBox?.kind === 'pickup' ? 'Enter the pickup code' : 'Enter the delivery code'}
+        subtitle={
+          codeBox?.kind === 'pickup'
+            ? `Ask ${codeBox?.order?.vendor?.storeName || 'the store'} for the 6-digit pickup code shown on their screen.`
+            : 'Ask the customer for the 6-digit delivery code on their order page. Only enter it once they have their items.'
+        }
+        onSubmit={submitCode}
+        onClose={() => setCodeBox(null)}
+      />
     </RiderLayout>
   )
 }

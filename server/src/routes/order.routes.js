@@ -10,6 +10,9 @@ const { notifyUser } = require('../controllers/notification.controller')
 const { notifyRidersOfPickup } = require('../services/orderNotifications')
 const { syncProductMirror } = require('../services/productUnits')
 const { cancelExpiredUnpaidOrders } = require('../services/orderExpiry.service')
+const {
+  ensureCodes, checkCode, markVerified, regenerateCode, describeCodes,
+} = require('../services/orderCodes.service')
 
 class StockError extends Error {}
 
@@ -20,6 +23,15 @@ function generateOrderNumber() {
   let suffix = ''
   for (let i = 0; i < 6; i++) suffix += chars[Math.floor(Math.random() * chars.length)]
   return `BUY-${suffix}`
+}
+
+// Which part this person plays in the order
+function roleFor(order, user) {
+  if (order.buyerId === user.id) return 'buyer'
+  if (user.vendor && order.vendorId === user.vendor.id) return 'vendor'
+  if (user.rider && order.riderId === user.rider.id) return 'rider'
+  if (user.role === 'ADMIN') return 'admin'
+  return null
 }
 
 // ─────────────────────────────────────────────────────
@@ -336,6 +348,56 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
   res.json({ orders, total, page: Number(page), pages: Math.ceil(total / Number(limit)) })
 }))
 
+// GET /api/orders/:id/codes — the pickup / delivery code this person is allowed to see.
+// Vendors see the pickup code, buyers see the delivery code, riders never see a code.
+router.get('/:id/codes', authenticate, asyncHandler(async (req, res) => {
+  const order = await prisma.order.findUnique({
+    where: { id: req.params.id },
+    include: { code: true },
+  })
+  if (!order) return res.status(404).json({ error: 'Order not found.' })
+
+  const role = roleFor(order, req.user)
+  if (!role) return res.status(403).json({ error: 'Access denied.' })
+
+  res.json({ codes: describeCodes(order, role) })
+}))
+
+// POST /api/orders/:id/codes/regenerate — the owner gets a fresh code (and a fresh set of tries)
+router.post('/:id/codes/regenerate', authenticate, asyncHandler(async (req, res) => {
+  const order = await prisma.order.findUnique({
+    where: { id: req.params.id },
+    include: { code: true },
+  })
+  if (!order) return res.status(404).json({ error: 'Order not found.' })
+
+  const role = roleFor(order, req.user)
+  if (role !== 'vendor' && role !== 'buyer') {
+    return res.status(403).json({ error: 'Only the store or the customer can renew a code.' })
+  }
+  if (!order.code) return res.status(400).json({ error: 'This order does not use codes.' })
+
+  const kind = role === 'vendor' ? 'pickup' : 'delivery'
+  const allowedStatuses = kind === 'pickup'
+    ? ['READY_FOR_PICKUP', 'ASSIGNED_TO_RIDER']
+    : ['ASSIGNED_TO_RIDER', 'PICKED_UP']
+
+  if (!allowedStatuses.includes(order.status)) {
+    return res.status(400).json({ error: 'A new code is not needed at this stage.' })
+  }
+  if (kind === 'pickup' ? order.code.pickupVerifiedAt : order.code.deliveryVerifiedAt) {
+    return res.status(400).json({ error: 'This step is already confirmed.' })
+  }
+
+  await regenerateCode(order.id, kind)
+
+  const fresh = await prisma.order.findUnique({
+    where: { id: order.id },
+    include: { code: true },
+  })
+  res.json({ codes: describeCodes(fresh, role), message: 'Here is your new code.' })
+}))
+
 // GET /api/orders/:id — MUST be after all named GET routes
 router.get('/:id', authenticate, asyncHandler(async (req, res) => {
   await cancelExpiredUnpaidOrders()
@@ -452,6 +514,10 @@ router.post('/:id/ready-for-pickup', authenticate, requireRole('VENDOR'), asyncH
     },
   })
 
+  // The pickup code (for the store to hand to the rider) and the delivery code
+  // (for the buyer to give the rider) are created now
+  await ensureCodes(prisma, order.id)
+
   notifyUser(order.buyerId, {
     title: `Order Ready (${order.orderNumber})`,
     message: `Your order is ready for pickup and has been assigned to the delivery pool.`,
@@ -463,7 +529,7 @@ router.post('/:id/ready-for-pickup', authenticate, requireRole('VENDOR'), asyncH
   // Let the riders know there is something to pick up
   notifyRidersOfPickup(order.id)
 
-  res.json({ order: updated, message: 'Order is now in the rider pool.' })
+  res.json({ order: updated, message: 'Order is now in the rider pool. Give the rider your pickup code when they arrive.' })
 }))
 
 // POST /api/orders/:id/cancel — buyer or vendor
@@ -579,12 +645,12 @@ router.post('/:id/claim', authenticate, requireRole('RIDER'), asyncHandler(async
 
   res.json({
     order: updated,
-    message: `Order claimed. You have ${timeoutMinutes} minutes to pick it up before it returns to the pool.`,
+    message: `Order claimed. You have ${timeoutMinutes} minutes to pick it up before it returns to the pool. Ask the store for the pickup code.`,
     claimExpiresAt,
   })
 }))
 
-// POST /api/orders/:id/picked-up — rider
+// POST /api/orders/:id/picked-up — rider. Needs the store's 6-digit pickup code.
 router.post('/:id/picked-up', authenticate, requireRole('RIDER'), asyncHandler(async (req, res) => {
   const order = await prisma.order.findUnique({ where: { id: req.params.id } })
 
@@ -594,6 +660,13 @@ router.post('/:id/picked-up', authenticate, requireRole('RIDER'), asyncHandler(a
     return res.status(400).json({ error: `Cannot mark picked up — order is currently ${order.status}.` })
   }
 
+  const check = await checkCode(order.id, 'pickup', req.body?.code)
+  if (!check.ok) {
+    return res.status(check.status).json({
+      error: check.error, locked: !!check.locked, attemptsLeft: check.attemptsLeft ?? null,
+    })
+  }
+
   const updated = await prisma.order.update({
     where: { id: order.id },
     data: {
@@ -601,11 +674,20 @@ router.post('/:id/picked-up', authenticate, requireRole('RIDER'), asyncHandler(a
       pickedUpAt: new Date(),
     },
   })
+  await markVerified(order.id, 'pickup')
 
-  res.json({ order: updated, message: 'Marked as picked up. Head to the delivery location.' })
+  notifyUser(order.buyerId, {
+    title: `On its way (${order.orderNumber})`,
+    message: `Your order was collected from the store. Keep your delivery code ready and give it to the rider only when you have your items.`,
+    type: 'ORDER',
+    link: `/orders/${order.id}`,
+    category: 'orderUpdates',
+  }).catch(() => {})
+
+  res.json({ order: updated, message: 'Pickup confirmed. Head to the delivery location and ask the customer for their delivery code.' })
 }))
 
-// POST /api/orders/:id/delivered — rider
+// POST /api/orders/:id/delivered — rider. Needs the buyer's 6-digit delivery code.
 router.post('/:id/delivered', authenticate, requireRole('RIDER'), asyncHandler(async (req, res) => {
   const order = await prisma.order.findUnique({ where: { id: req.params.id } })
 
@@ -613,6 +695,13 @@ router.post('/:id/delivered', authenticate, requireRole('RIDER'), asyncHandler(a
   if (order.riderId !== req.user.rider.id) return res.status(403).json({ error: 'This is not your delivery.' })
   if (order.status !== 'PICKED_UP') {
     return res.status(400).json({ error: `Cannot mark delivered — order is currently ${order.status}.` })
+  }
+
+  const check = await checkCode(order.id, 'delivery', req.body?.code)
+  if (!check.ok) {
+    return res.status(check.status).json({
+      error: check.error, locked: !!check.locked, attemptsLeft: check.attemptsLeft ?? null,
+    })
   }
 
   const [updated] = await prisma.$transaction([
@@ -628,15 +717,16 @@ router.post('/:id/delivered', authenticate, requireRole('RIDER'), asyncHandler(a
       data: { totalDeliveries: { increment: 1 } },
     }),
   ])
+  await markVerified(order.id, 'delivery')
 
   res.json({
     order: updated,
-    message: 'Marked as delivered. Waiting for buyer to confirm receipt to release payment.',
+    message: 'Delivery confirmed with the customer\'s code. Waiting for them to confirm receipt to release payment.',
   })
 
   notifyUser(order.buyerId, {
     title: `Order Delivered (${order.orderNumber})`,
-    message: `Rider has delivered your order to ${order.deliveryHall}. Please confirm receipt.`,
+    message: `Your delivery code was accepted. Please confirm receipt so the store can be paid.`,
     type: 'ORDER',
     link: `/orders/${order.id}`,
     category: 'orderUpdates',
