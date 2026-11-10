@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Upload, ArrowLeft, X } from 'lucide-react'
 import VendorLayout from '../../components/vendor/VendorLayout'
-import UnitsEditor, { emptyUnit } from '../../components/vendor/UnitsEditor'
+import UnitsEditor, { emptyUnit, unitsToPayload } from '../../components/vendor/UnitsEditor'
 import LocationMultiSelect from '../../components/common/LocationMultiSelect'
 import { Spinner } from '../../components/common/GlobalLoader'
 import { PRODUCT_CATEGORIES } from '../../constants/productOptions'
@@ -22,7 +22,6 @@ export default function AddProduct() {
     name: '', category: '', description: '', sku: '',
     // Start with everywhere this store delivers; the seller can narrow it down
     availableHalls: Array.isArray(user?.vendor?.deliveryAreas) ? user.vendor.deliveryAreas : [],
-    flashDeal: false,
   })
   const [saving, setSaving] = useState(false)
 
@@ -66,6 +65,9 @@ export default function AddProduct() {
     if (filled.length === 0) return toast.error('Add at least one way to buy, with a name and price.')
     if (filled.some(u => !u.label.trim())) return toast.error('Every option needs a name, like Pack or Carton.')
     if (filled.some(u => !String(u.price).trim())) return toast.error('Every option needs a price.')
+    if (filled.some(u => u.dealOn && !String(u.dealPrice).trim())) {
+      return toast.error('Enter a deal price, or turn the special deal off.')
+    }
 
     setSaving(true)
     try {
@@ -75,14 +77,8 @@ export default function AddProduct() {
         description: form.description || '',
         sku: form.sku || null,
         availableHalls: form.availableHalls,
-        flashDeal: form.flashDeal,
         images: [],
-        units: filled.map(u => ({
-          label: u.label.trim(),
-          price: Number(u.price),
-          comparePrice: u.comparePrice ? Number(u.comparePrice) : null,
-          stock: Number(u.stock) || 0,
-        })),
+        units: unitsToPayload(filled),
       })
       toast.success('Product published. Students can order it now.')
       navigate('/vendor/products')
@@ -191,14 +187,14 @@ export default function AddProduct() {
             </div>
           </div>
 
-          {/* Ways to buy + pricing */}
+          {/* Ways to buy + pricing + deals */}
           <div style={{
             backgroundColor: 'white',
             border: '1px solid rgba(0,0,0,0.07)',
             borderRadius: 12, padding: isMobile ? '16px' : '20px 22px',
           }}>
             <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 4px', color: '#1D1D1D' }}>
-              Ways to Buy, Pricing & Stock
+              Ways to Buy, Pricing, Stock & Deals
             </p>
             <UnitsEditor
               units={units}
@@ -207,44 +203,6 @@ export default function AddProduct() {
               labelStyle={lbl}
               isMobile={isMobile}
             />
-
-            {/* Flash deal toggle */}
-            <div style={{
-              display: 'flex', justifyContent: 'space-between',
-              alignItems: 'center', marginTop: 18,
-              padding: '12px 14px',
-              backgroundColor: '#F7F4EF', borderRadius: 8,
-              gap: 12,
-            }}>
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 2px', color: '#1D1D1D' }}>
-                  Flash Deal
-                </p>
-                <p style={{ fontSize: 11, color: '#7F766B', margin: 0 }}>
-                  Mark as a limited time offer
-                </p>
-              </div>
-              <div
-                onClick={() => handleChange('flashDeal', !form.flashDeal)}
-                role="switch"
-                aria-checked={form.flashDeal}
-                style={{
-                  width: 42, height: 24, borderRadius: 12,
-                  backgroundColor: form.flashDeal ? '#BE864B' : '#E4DDD3',
-                  position: 'relative', cursor: 'pointer',
-                  transition: 'background 0.2s', flexShrink: 0,
-                }}
-              >
-                <div style={{
-                  width: 18, height: 18, borderRadius: '50%',
-                  backgroundColor: 'white',
-                  position: 'absolute', top: 3,
-                  left: form.flashDeal ? 21 : 3,
-                  transition: 'left 0.2s',
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
-                }} />
-              </div>
-            </div>
           </div>
 
           {/* Delivery coverage */}
@@ -363,7 +321,7 @@ export default function AddProduct() {
               💡 Listing Tip
             </p>
             <p style={{ fontSize: 11, color: '#7F766B', margin: 0, lineHeight: 1.6 }}>
-              Sell the way your customers buy. If students usually grab single sachets <strong style={{ color: '#1D1D1D' }}>and</strong> whole cartons, add both as separate options.
+              Sell the way your customers buy. If students usually grab single sachets <strong style={{ color: '#1D1D1D' }}>and</strong> whole cartons, add both as separate options. Use <strong style={{ color: '#1D1D1D' }}>🔥 special deals</strong> to move slow stock: buyers see them on the Special Deals page too.
             </p>
           </div>
 

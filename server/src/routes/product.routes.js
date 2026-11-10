@@ -4,11 +4,23 @@ const authenticate = require('../middleware/auth')
 const requireRole = require('../middleware/requireRole')
 const asyncHandler = require('express-async-handler')
 const prisma = require('../utils/prisma')
-const { cleanUnits, mirrorFields, syncProductMirror } = require('../services/productUnits')
+const {
+  cleanUnits, mirrorFields, syncProductMirror, withDeal, withDealsOnProduct,
+} = require('../services/productUnits')
 
 const UNITS_INCLUDE = { where: { isActive: true }, orderBy: { sortOrder: 'asc' } }
 const VENDOR_PUBLIC = {
   select: { id: true, storeName: true, hall: true, rating: true, verified: true, deliveryFee: true },
+}
+
+// A unit that is on a live deal right now (the final price check happens in code)
+function liveDealWhere(now = new Date()) {
+  return {
+    isActive: true,
+    stock: { gt: 0 },
+    dealPrice: { not: null },
+    OR: [{ dealEndsAt: null }, { dealEndsAt: { gt: now } }],
+  }
 }
 
 // GET /api/products
@@ -24,7 +36,8 @@ router.get('/', asyncHandler(async (req, res) => {
     isActive: true,
     ...(category && { category }),
     ...(vendorId && { vendorId }),
-    ...(flashDeal === 'true' && { flashDeal: true }),
+    // "flashDeal=true" now means: has a live special deal
+    ...(flashDeal === 'true' && { units: { some: liveDealWhere() } }),
     ...(hall && { availableHalls: { has: hall } }),
     ...(search && {
       name: { contains: search, mode: 'insensitive' },
@@ -49,10 +62,15 @@ router.get('/', asyncHandler(async (req, res) => {
     prisma.product.count({ where }),
   ])
 
-  res.json({ products, total, page: Number(page), pages: Math.ceil(total / Number(limit)) })
+  res.json({
+    products: products.map(p => withDealsOnProduct(p)),
+    total,
+    page: Number(page),
+    pages: Math.ceil(total / Number(limit)),
+  })
 }))
 
-// GET /api/products/mine — vendor's own products
+// GET /api/products/mine — vendor's own products (real prices, deals not applied)
 router.get('/mine', authenticate, requireRole('VENDOR'), asyncHandler(async (req, res) => {
   const vendor = await prisma.vendor.findUnique({ where: { userId: req.user.id } })
   if (!vendor) return res.status(404).json({ error: 'Vendor profile not found.' })
@@ -66,8 +84,63 @@ router.get('/mine', authenticate, requireRole('VENDOR'), asyncHandler(async (req
   res.json({ products, total: products.length })
 }))
 
+// GET /api/products/deals?category=&search=&sort=ending|discount|price&page=&limit=
+// Public — everything with a live special deal. Must stay above '/:id'.
+router.get('/deals', asyncHandler(async (req, res) => {
+  const { category, search, sort = 'ending', page = 1, limit = 20 } = req.query
+  const now = new Date()
+
+  const candidates = await prisma.product.findMany({
+    where: {
+      isActive: true,
+      ...(search && { name: { contains: String(search), mode: 'insensitive' } }),
+      units: { some: liveDealWhere(now) },
+    },
+    include: { vendor: VENDOR_PUBLIC, units: UNITS_INCLUDE },
+    take: 200,
+  })
+
+  // The database can't compare dealPrice with price, so double-check here
+  const all = candidates
+    .map(p => withDealsOnProduct(p, now))
+    .filter(p => p.units.some(u => u.onDeal && u.stock > 0))
+
+  // Category chips: how many deals each category has (before filtering by category)
+  const counts = {}
+  for (const p of all) counts[p.category] = (counts[p.category] || 0) + 1
+  const categories = Object.entries(counts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+
+  let deals = category ? all.filter(p => p.category === category) : all
+
+  // Biggest saving on any option, and the cheapest deal price
+  const discountOf = (p) => Math.max(0, ...p.units
+    .filter(u => u.onDeal)
+    .map(u => (u.comparePrice ? 1 - u.price / u.comparePrice : 0)))
+  const cheapestOf = (p) => Math.min(...p.units.filter(u => u.onDeal).map(u => u.price))
+  const endOf = (p) => (p.dealEndsAt ? new Date(p.dealEndsAt).getTime() : Infinity)
+
+  deals = deals.sort((a, b) => {
+    if (sort === 'discount') return discountOf(b) - discountOf(a)
+    if (sort === 'price') return cheapestOf(a) - cheapestOf(b)
+    return endOf(a) - endOf(b) // ending soonest first, deals with no end last
+  })
+
+  const per = Number(limit)
+  const start = (Number(page) - 1) * per
+
+  res.json({
+    products: deals.slice(start, start + per),
+    total: deals.length,
+    page: Number(page),
+    pages: Math.max(1, Math.ceil(deals.length / per)),
+    categories,
+  })
+}))
+
 // GET /api/products/offers?name=Indomie
-// Public — every seller of a product with this name (case and spacing around it ignored),
+// Public — every seller of a product with this name (case ignored),
 // with what a buyer needs to compare them: options, price, store location, order count.
 // Must stay above '/:id'.
 router.get('/offers', asyncHandler(async (req, res) => {
@@ -121,7 +194,7 @@ router.get('/offers', asyncHandler(async (req, res) => {
       const missing = v.latitude == null || v.longitude == null
       const place = missing ? placeByName.get((v.hall || '').toLowerCase()) : null
       return {
-        ...p,
+        ...withDealsOnProduct(p),
         orderCount: orderCounts.get(p.id) || 0,
         vendor: {
           ...v,
@@ -134,6 +207,18 @@ router.get('/offers', asyncHandler(async (req, res) => {
   res.json({ name, offers })
 }))
 
+// GET /api/products/:id/edit
+// Vendor only — your own product with the REAL prices (no deal applied), for the edit screen
+router.get('/:id/edit', authenticate, requireRole('VENDOR'), asyncHandler(async (req, res) => {
+  const product = await prisma.product.findUnique({
+    where: { id: req.params.id },
+    include: { units: UNITS_INCLUDE },
+  })
+  if (!product) return res.status(404).json({ error: 'Product not found.' })
+  if (product.vendorId !== req.user.vendor.id) return res.status(403).json({ error: 'This is not your product.' })
+  res.json({ product })
+}))
+
 // GET /api/products/:id
 // Public — single product detail
 router.get('/:id', asyncHandler(async (req, res) => {
@@ -142,7 +227,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
     include: { vendor: VENDOR_PUBLIC, units: UNITS_INCLUDE },
   })
   if (!product) return res.status(404).json({ error: 'Product not found.' })
-  res.json({ product })
+  res.json({ product: withDealsOnProduct(product) })
 }))
 
 // POST /api/products
@@ -190,7 +275,7 @@ router.post('/', authenticate, requireRole('VENDOR'), asyncHandler(async (req, r
 }))
 
 // PATCH /api/products/:id
-// Vendor only — update own product (and its options)
+// Vendor only — update own product (and its options and deals)
 router.patch('/:id', authenticate, requireRole('VENDOR'), asyncHandler(async (req, res) => {
   const existing = await prisma.product.findUnique({
     where: { id: req.params.id },
@@ -224,6 +309,8 @@ router.patch('/:id', authenticate, requireRole('VENDOR'), asyncHandler(async (re
         price: req.body.price !== undefined ? req.body.price : first.price,
         comparePrice: req.body.comparePrice !== undefined ? req.body.comparePrice : first.comparePrice,
         stock: req.body.stock !== undefined ? req.body.stock : first.stock,
+        dealPrice: first.dealPrice,
+        dealEndsAt: first.dealEndsAt,
       }])
       if (result.error) return res.status(400).json({ error: result.error })
       const others = existing.units
@@ -267,6 +354,8 @@ router.patch('/:id', authenticate, requireRole('VENDOR'), asyncHandler(async (re
           price: u.price,
           comparePrice: u.comparePrice,
           stock: u.stock,
+          dealPrice: u.dealPrice,
+          dealEndsAt: u.dealEndsAt,
           sortOrder: u.sortOrder,
           isActive: true,
         }

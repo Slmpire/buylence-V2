@@ -1,5 +1,4 @@
-
- // Buylence — Database Schema
+// Buylence — Database Schema
 // Campus marketplace + delivery for OAU students
 
 generator client {
@@ -72,27 +71,27 @@ model Location {
 // ─────────────── USER ───────────────
 
 model User {
-  id                    String   @id @default(cuid())
-  firebaseUid           String   @unique
-  email                 String   @unique
-  fullName              String
-  phone                 String?
-  role                  Role     @default(BUYER)
+  id          String  @id @default(cuid())
+  firebaseUid String  @unique
+  email       String  @unique
+  fullName    String
+  phone       String?
+  role        Role    @default(BUYER)
 
-  hall                  String?
-  room                  String?
-  matric                String?
-  bio                   String?
-  avatarUrl             String?
+  hall      String?
+  room      String?
+  matric    String?
+  bio       String?
+  avatarUrl String?
 
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  vendor                Vendor?
-  rider                 Rider?
-  orders                Order[]  @relation("BuyerOrders")
-  reviews               Review[]
-  notifications         Notification[]
+  vendor                 Vendor?
+  rider                  Rider?
+  orders                 Order[]                 @relation("BuyerOrders")
+  reviews                Review[]
+  notifications          Notification[]
   notificationPreference NotificationPreference?
 
   @@map("users")
@@ -101,36 +100,36 @@ model User {
 // ─────────────── VENDOR ───────────────
 
 model Vendor {
-  id           String    @id @default(cuid())
-  userId       String    @unique
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  storeName    String
-  description  String?
-  hall         String
-  storeType    StoreType @default(PHYSICAL_KIOSK)
-  categories   String[]
-  logoUrl      String?
-  bannerUrl    String?
+  storeName   String
+  description String?
+  hall        String
+  storeType   StoreType @default(PHYSICAL_KIOSK)
+  categories  String[]
+  logoUrl     String?
+  bannerUrl   String?
 
-  latitude     Float?
-  longitude    Float?
-
-  verified     Boolean   @default(false)
-  onboarded    Boolean   @default(false)
-  deliveryFee  Int       @default(200)
-
-  rating       Float     @default(0)
-  totalReviews Int       @default(0)
-  totalSales   Int       @default(0)
-
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  products     Product[]
-  orders       Order[]
-  reviews      Review[]
+  latitude      Float?
+  longitude     Float?
   deliveryAreas String[] @default([])
+
+  verified    Boolean @default(false)
+  onboarded   Boolean @default(false)
+  deliveryFee Int     @default(200)
+
+  rating       Float @default(0)
+  totalReviews Int   @default(0)
+  totalSales   Int   @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+  orders   Order[]
+  reviews  Review[]
 
   @@index([latitude, longitude])
   @@map("vendors")
@@ -140,18 +139,18 @@ model Vendor {
 // Fixed team, manually onboarded by admin.
 
 model Rider {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   vehicleType     String?
-  isActive        Boolean  @default(true)
-  totalDeliveries Int      @default(0)
+  isActive        Boolean @default(true)
+  totalDeliveries Int     @default(0)
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  claimedOrders   Order[]  @relation("RiderOrders")
+  claimedOrders Order[] @relation("RiderOrders")
 
   @@map("riders")
 }
@@ -159,9 +158,9 @@ model Rider {
 // ─────────────── PRODUCT ───────────────
 
 model Product {
-  id             String   @id @default(cuid())
-  vendorId       String
-  vendor         Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  vendorId String
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   name           String
   description    String?
@@ -176,122 +175,180 @@ model Product {
   flashDeal      Boolean  @default(false)
   isActive       Boolean  @default(true)
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
-  orderItems     OrderItem[]
-  units ProductUnit[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderItems OrderItem[]
+  units      ProductUnit[]
 
   @@map("products")
 }
 
+// ─────────────── PRODUCT UNIT ───────────────
+
 model ProductUnit {
-  id           String   @id @default(cuid())
-  productId    String
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
   label        String
   price        Int
   comparePrice Int?
-  stock        Int      @default(0)
-  sortOrder    Int      @default(0)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  dealPrice    Int?
+  dealEndsAt   DateTime?
+
+  stock     Int     @default(0)
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
 
   @@index([productId])
+}
+
+// ─────────────── PAYMENT GROUP ───────────────
+// Groups multiple vendor orders into one payment.
+
+model PaymentGroup {
+  id            String        @id @default(cuid())
+  buyerId       String
+  paymentMethod PaymentMethod
+  total         Float
+  reference     String?       @unique
+  status        String        @default("PENDING")
+  // PENDING | PAID | EXPIRED | CANCELLED
+
+  createdAt DateTime @default(now())
+
+  orders Order[]
+
+  @@index([buyerId])
+  @@index([status])
 }
 
 // ─────────────── ORDER ───────────────
 
 model Order {
-  id                String        @id @default(cuid())
-  orderNumber       String        @unique
+  id          String @id @default(cuid())
+  orderNumber String @unique
 
-  buyerId           String
-  buyer             User          @relation("BuyerOrders", fields: [buyerId], references: [id])
+  buyerId String
+  buyer   User   @relation("BuyerOrders", fields: [buyerId], references: [id])
 
-  vendorId          String
-  vendor            Vendor        @relation(fields: [vendorId], references: [id])
+  vendorId String
+  vendor   Vendor @relation(fields: [vendorId], references: [id])
 
-  riderId           String?
-  rider             Rider?        @relation("RiderOrders", fields: [riderId], references: [id])
+  riderId String?
+  rider   Rider?  @relation("RiderOrders", fields: [riderId], references: [id])
 
-  status            OrderStatus   @default(PLACED)
+  paymentGroupId String?
+  paymentGroup   PaymentGroup? @relation(fields: [paymentGroupId], references: [id])
 
-  opayRef           String?       @unique
+  status OrderStatus @default(PLACED)
 
-  deliveryHall      String
-  deliveryRoom      String?
-  recipientName     String
-  recipientPhone    String
+  opayRef String? @unique
+
+  deliveryHall   String
+  deliveryRoom   String?
+  recipientName  String
+  recipientPhone String
 
   deliveryLatitude  Float?
   deliveryLongitude Float?
 
-  subtotal          Int
-  deliveryFee       Int           @default(200)
-  total             Int
+  subtotal    Int
+  deliveryFee Int @default(200)
+  total       Int
 
-  paymentMethod     PaymentMethod
-  paymentStatus     PaymentStatus @default(PENDING)
-  paystackRef       String?
+  paymentMethod PaymentMethod
+  paymentStatus PaymentStatus @default(PENDING)
+  paystackRef   String?
 
-  riderConfirmedAt  DateTime?
-  buyerConfirmedAt  DateTime?
-  escrowReleasedAt  DateTime?
+  riderConfirmedAt DateTime?
+  buyerConfirmedAt DateTime?
+  escrowReleasedAt DateTime?
 
-  claimedAt         DateTime?
-  claimExpiresAt    DateTime?
-  pickedUpAt        DateTime?
-  readyForPickupAt  DateTime?
+  claimedAt        DateTime?
+  claimExpiresAt   DateTime?
+  pickedUpAt       DateTime?
+  readyForPickupAt DateTime?
 
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  items             OrderItem[]
-  review            Review?
+  items  OrderItem[]
+  review Review?
+  code   OrderCode?
 
-  virtualAccount    String?       @unique
-  wemaSessionId     String?       @unique
+  virtualAccount String? @unique
+  wemaSessionId  String? @unique
 
   @@index([deliveryLatitude, deliveryLongitude])
+  @@index([buyerId])
+  @@index([vendorId])
+  @@index([riderId])
+  @@index([paymentGroupId])
+  @@index([status])
   @@map("orders")
 }
 
 // ─────────────── ORDER ITEM ───────────────
 
 model OrderItem {
-  id        String  @id @default(cuid())
-  orderId   String
-  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   productId String
   product   Product @relation(fields: [productId], references: [id])
 
-  name      String
-  price     Int
-  quantity  Int
+  name     String
+  price    Int
+  quantity Int
 
-productUnitId String?
+  productUnitId String?
   unitLabel     String?
-  
+
   @@map("order_items")
+}
+
+// ─────────────── ORDER CODE ───────────────
+// Secure pickup and delivery verification codes.
+
+model OrderCode {
+  id      String @id @default(cuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  pickupCode   String
+  deliveryCode String
+
+  pickupAttempts   Int @default(0)
+  deliveryAttempts Int @default(0)
+
+  pickupVerifiedAt   DateTime?
+  deliveryVerifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@map("order_codes")
 }
 
 // ─────────────── REVIEW ───────────────
 
 model Review {
-  id        String   @id @default(cuid())
-  orderId   String   @unique
-  order     Order    @relation(fields: [orderId], references: [id])
+  id      String @id @default(cuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id])
 
-  buyerId   String
-  buyer     User     @relation(fields: [buyerId], references: [id])
+  buyerId String
+  buyer   User   @relation(fields: [buyerId], references: [id])
 
-  vendorId  String
-  vendor    Vendor   @relation(fields: [vendorId], references: [id])
+  vendorId String
+  vendor   Vendor @relation(fields: [vendorId], references: [id])
 
-  rating    Int
-  comment   String?
+  rating  Int
+  comment String?
 
   createdAt DateTime @default(now())
 
@@ -301,15 +358,15 @@ model Review {
 // ─────────────── NOTIFICATION ───────────────
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  title     String
-  message   String
-  type      String   @default("INFO")
-  link      String?
-  read      Boolean  @default(false)
+  title   String
+  message String
+  type    String  @default("INFO")
+  link    String?
+  read    Boolean @default(false)
 
   createdAt DateTime @default(now())
 
@@ -319,17 +376,17 @@ model Notification {
 // ─────────────── NOTIFICATION PREFERENCE ───────────────
 
 model NotificationPreference {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  orderUpdates    Boolean  @default(true)
-  flashDeals      Boolean  @default(true)
-  vendorMessages  Boolean  @default(false)
-  weeklyDigest    Boolean  @default(true)
-  marketingEmails Boolean  @default(false)
+  orderUpdates    Boolean @default(true)
+  flashDeals      Boolean @default(true)
+  vendorMessages  Boolean @default(false)
+  weeklyDigest    Boolean @default(true)
+  marketingEmails Boolean @default(false)
 
-  updatedAt       DateTime @updatedAt
+  updatedAt DateTime @updatedAt
 
   @@map("notification_preferences")
 }

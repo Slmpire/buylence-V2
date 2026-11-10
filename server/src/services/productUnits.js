@@ -43,7 +43,32 @@ function cleanUnits(input) {
       return { error: `"${label}": stock must be a whole number, 0 or more.` }
     }
 
-    units.push({ id: raw.id || undefined, label, price, comparePrice, stock, sortOrder: index })
+    // Special deal (optional)
+    let dealPrice = null
+    let dealEndsAt = null
+    const hasDeal = raw.dealPrice !== '' && raw.dealPrice !== null && raw.dealPrice !== undefined
+    if (hasDeal) {
+      dealPrice = Number(raw.dealPrice)
+      if (!Number.isInteger(dealPrice) || dealPrice <= 0) {
+        return { error: `"${label}": the deal price must be a whole number of naira, above 0.` }
+      }
+      if (dealPrice >= price) {
+        return { error: `"${label}": the deal price must be lower than the normal price (₦${price.toLocaleString()}).` }
+      }
+      if (raw.dealEndsAt) {
+        const when = new Date(raw.dealEndsAt)
+        if (Number.isNaN(when.getTime())) {
+          return { error: `"${label}": the deal end time is not a valid date.` }
+        }
+        dealEndsAt = when
+      }
+    }
+
+    units.push({
+      id: raw.id || undefined,
+      label, price, comparePrice, stock, dealPrice, dealEndsAt,
+      sortOrder: index,
+    })
   }
 
   return { units }
@@ -70,4 +95,53 @@ async function syncProductMirror(client, productId) {
   return client.product.update({ where: { id: productId }, data: mirrorFields(units) })
 }
 
-module.exports = { cleanUnits, mirrorFields, syncProductMirror, MAX_UNITS }
+// ─────────────────────────────────────────────────────
+// SPECIAL DEALS
+// ─────────────────────────────────────────────────────
+
+function isDealActive(unit, now = new Date()) {
+  return (
+    unit.dealPrice != null &&
+    unit.dealPrice > 0 &&
+    unit.dealPrice < unit.price &&
+    (!unit.dealEndsAt || new Date(unit.dealEndsAt) > now)
+  )
+}
+
+// What buyers see and pay. While a deal runs, the deal price IS the price and the
+// normal price becomes the crossed-out "was" price. Once it ends, the unit is normal again.
+function withDeal(unit, now = new Date()) {
+  if (!isDealActive(unit, now)) {
+    const { dealPrice, dealEndsAt, ...rest } = unit
+    return { ...rest, basePrice: unit.price, onDeal: false }
+  }
+  return {
+    ...unit,
+    basePrice: unit.price,
+    price: unit.dealPrice,
+    comparePrice: unit.price,
+    onDeal: true,
+  }
+}
+
+// A product with deals applied to all of its options, plus whether it is on deal at all
+function withDealsOnProduct(product, now = new Date()) {
+  const units = (product.units || []).map(u => withDeal(u, now))
+  const live = units.filter(u => u.onDeal)
+  const ends = live
+    .map(u => u.dealEndsAt)
+    .filter(Boolean)
+    .map(d => new Date(d).getTime())
+
+  return {
+    ...product,
+    units,
+    onDeal: live.length > 0,
+    dealEndsAt: ends.length ? new Date(Math.min(...ends)).toISOString() : null,
+  }
+}
+
+module.exports = {
+  cleanUnits, mirrorFields, syncProductMirror, MAX_UNITS,
+  isDealActive, withDeal, withDealsOnProduct,
+}

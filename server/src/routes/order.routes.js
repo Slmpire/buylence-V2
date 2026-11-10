@@ -8,7 +8,7 @@ const { releaseEscrow } = require('../services/escrow.service')
 const { revertExpiredClaims } = require('../services/claimExpiry.service')
 const { notifyUser } = require('../controllers/notification.controller')
 const { notifyRidersOfPickup } = require('../services/orderNotifications')
-const { syncProductMirror } = require('../services/productUnits')
+const { syncProductMirror, withDeal } = require('../services/productUnits')
 const { cancelExpiredUnpaidOrders } = require('../services/orderExpiry.service')
 const {
   ensureCodes, checkCode, markVerified, regenerateCode, describeCodes,
@@ -195,13 +195,16 @@ async function createCheckout(req, res) {
   const needed = new Map() // unitId -> total quantity wanted
   for (const item of requested) {
     const product = products.find(p => p.id === item.productId)
-    const unit = item.unitId
+     const rawUnit = item.unitId
       ? product.units.find(u => u.id === item.unitId)
       : product.units[0]
 
-    if (!unit) {
+    if (!rawUnit) {
       return res.status(400).json({ error: `${product.name} is no longer sold that way. Please refresh your cart.` })
     }
+
+    // While a deal is running, the order is priced at the deal price
+    const unit = withDeal(rawUnit)
     lines.push({ product, unit, quantity: item.quantity })
     needed.set(unit.id, (needed.get(unit.id) || 0) + item.quantity)
   }

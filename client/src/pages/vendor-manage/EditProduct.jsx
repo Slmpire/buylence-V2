@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import VendorLayout from '../../components/vendor/VendorLayout'
-import UnitsEditor, { emptyUnit } from '../../components/vendor/UnitsEditor'
+import UnitsEditor, { emptyUnit, unitFromServer, unitsToPayload } from '../../components/vendor/UnitsEditor'
 import LocationMultiSelect from '../../components/common/LocationMultiSelect'
 import { Spinner, PageLoader } from '../../components/common/GlobalLoader'
 import { PRODUCT_CATEGORIES } from '../../constants/productOptions'
@@ -17,7 +17,7 @@ export default function EditProduct() {
 
   const [form, setForm] = useState({
     name: '', category: '', description: '', sku: '',
-    availableHalls: [], flashDeal: false,
+    availableHalls: [],
   })
   const [units, setUnits] = useState([emptyUnit()])
   const [loading, setLoading] = useState(true)
@@ -25,7 +25,8 @@ export default function EditProduct() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api.get(`/products/${id}`)
+    // The edit route returns the REAL prices, with any running deal left out
+    api.get(`/products/${id}/edit`)
       .then(res => {
         const p = res.data.product
         setForm({
@@ -34,20 +35,14 @@ export default function EditProduct() {
           description: p.description || '',
           sku: p.sku || '',
           availableHalls: p.availableHalls || [],
-          flashDeal: p.flashDeal || false,
         })
 
         if (p.units?.length) {
-          setUnits(p.units.map(u => ({
-            id: u.id,
-            label: u.label,
-            price: u.price,
-            comparePrice: u.comparePrice ?? '',
-            stock: u.stock,
-          })))
+          setUnits(p.units.map(unitFromServer))
         } else {
           // Product from before options existed: show its single price and stock
           setUnits([{
+            ...emptyUnit(),
             label: String(p.unit || 'Piece').replace(/^per\s+/i, ''),
             price: p.price,
             comparePrice: p.comparePrice ?? '',
@@ -69,6 +64,9 @@ export default function EditProduct() {
     if (!form.category) return setError('Please select a category.')
     if (units.some(u => !u.label.trim())) return setError('Every option needs a name, like Pack or Carton.')
     if (units.some(u => !String(u.price).trim())) return setError('Every option needs a price.')
+    if (units.some(u => u.dealOn && !String(u.dealPrice).trim())) {
+      return setError('Enter a deal price, or turn the special deal off.')
+    }
 
     setSaving(true)
     setError('')
@@ -79,14 +77,7 @@ export default function EditProduct() {
         description: form.description || '',
         sku: form.sku || null,
         availableHalls: form.availableHalls,
-        flashDeal: form.flashDeal,
-        units: units.map(u => ({
-          id: u.id,
-          label: u.label.trim(),
-          price: Number(u.price),
-          comparePrice: u.comparePrice ? Number(u.comparePrice) : null,
-          stock: Number(u.stock) || 0,
-        })),
+        units: unitsToPayload(units),
       })
       toast.success('Product updated.')
       navigate('/vendor/products')
@@ -204,10 +195,10 @@ export default function EditProduct() {
           </div>
         </div>
 
-        {/* Ways to buy + pricing */}
+        {/* Ways to buy + pricing + deals */}
         <div style={card}>
           <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 4px', color: '#1D1D1D' }}>
-            Ways to Buy, Pricing & Stock
+            Ways to Buy, Pricing, Stock & Deals
           </p>
           <UnitsEditor
             units={units}
@@ -219,40 +210,6 @@ export default function EditProduct() {
           <p style={{ fontSize: 11, color: '#9C9488', margin: '14px 0 0', lineHeight: 1.5 }}>
             Removing an option hides it from buyers. Past orders keep showing it.
           </p>
-
-          {/* Flash deal toggle */}
-          <div style={{
-            display: 'flex', justifyContent: 'space-between',
-            alignItems: 'center', marginTop: 16,
-            padding: '12px 14px', backgroundColor: '#F7F4EF',
-            borderRadius: 8, gap: 12,
-          }}>
-            <div>
-              <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 2px', color: '#1D1D1D' }}>
-                Flash Deal
-              </p>
-              <p style={{ fontSize: 11, color: '#7F766B', margin: 0 }}>
-                Mark as a limited time offer
-              </p>
-            </div>
-            <div
-              onClick={() => handleChange('flashDeal', !form.flashDeal)}
-              role="switch"
-              aria-checked={form.flashDeal}
-              style={{
-                width: 42, height: 24, borderRadius: 12,
-                backgroundColor: form.flashDeal ? '#BE864B' : '#E4DDD3',
-                position: 'relative', cursor: 'pointer',
-                transition: 'background 0.2s', flexShrink: 0,
-              }}
-            >
-              <div style={{
-                width: 18, height: 18, borderRadius: '50%', backgroundColor: 'white',
-                position: 'absolute', top: 3, left: form.flashDeal ? 21 : 3,
-                transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-              }} />
-            </div>
-          </div>
         </div>
 
         {/* Delivery coverage */}

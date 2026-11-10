@@ -2,10 +2,11 @@ const express = require('express')
 const router = express.Router()
 const asyncHandler = require('express-async-handler')
 const prisma = require('../utils/prisma')
+const { withDeal } = require('../services/productUnits')
 
 // POST /api/cart/refresh
-// Public — takes the lines in someone's cart and returns what each one costs and
-// whether it is still on sale, so the cart never shows an out-of-date price.
+// Public — takes the lines in someone's cart and returns what each one costs right now
+// (deal prices included) and whether it is still on sale.
 // body: { items: [{ key, id, unitId }] }
 router.post('/refresh', asyncHandler(async (req, res) => {
   const lines = Array.isArray(req.body?.items) ? req.body.items.slice(0, 50) : []
@@ -25,10 +26,12 @@ router.post('/refresh', asyncHandler(async (req, res) => {
     if (!product || !product.isActive) return { key: line.key, status: 'unavailable' }
 
     // A line from before options existed has no unitId: it means the first option
-    const unit = line.unitId
+    const raw = line.unitId
       ? product.units.find(u => u.id === line.unitId)
       : product.units[0]
-    if (!unit) return { key: line.key, status: 'unavailable' }
+    if (!raw) return { key: line.key, status: 'unavailable' }
+
+    const unit = withDeal(raw)
 
     return {
       key: line.key,
@@ -38,6 +41,8 @@ router.post('/refresh', asyncHandler(async (req, res) => {
       price: unit.price,
       comparePrice: unit.comparePrice,
       stock: unit.stock,
+      onDeal: unit.onDeal,
+      dealEndsAt: unit.onDeal ? unit.dealEndsAt : null,
       deliveryFee: product.vendor?.deliveryFee ?? null,
     }
   })
