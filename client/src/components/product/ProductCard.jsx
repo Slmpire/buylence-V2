@@ -2,6 +2,7 @@ import { useState } from 'react'
 import useCartStore from '../../store/cartStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import ProductExplorer from './ProductExplorer'
+import DealCountdown from './DealCountdown'
 
 // Inline picture so a missing photo can never fail to load
 const FALLBACK_IMG =
@@ -26,8 +27,16 @@ export default function ProductCard({ product, onSelectProduct }) {
   const units = Array.isArray(product.units) && product.units.length > 0 ? product.units : null
   const defaultUnit = units ? (units.find(u => u.stock > 0) || units[0]) : null
 
-  const price = defaultUnit ? defaultUnit.price : product.price
-  const comparePrice = defaultUnit ? defaultUnit.comparePrice : product.comparePrice
+  // An option on a live deal wins the card, so shoppers see the saving straight away
+  const dealUnit = units
+    ? units
+        .filter(u => u.onDeal && u.stock > 0 && u.comparePrice)
+        .sort((a, b) => (1 - b.price / b.comparePrice) - (1 - a.price / a.comparePrice))[0] || null
+    : null
+  const shownUnit = dealUnit || defaultUnit
+
+  const price = shownUnit ? shownUnit.price : product.price
+  const comparePrice = shownUnit ? shownUnit.comparePrice : product.comparePrice
 
   const soldOut = units
     ? units.every(u => u.stock <= 0)
@@ -43,12 +52,16 @@ export default function ProductCard({ product, onSelectProduct }) {
         : units.slice(0, 3).map(u => u.label).join(' · ') + (units.length > 3 ? ' …' : ''))
     : (product.tag || product.unit || product.vendor?.storeName || 'CAMPUS VENDOR')
 
+  const percentOff = comparePrice && comparePrice > price
+    ? Math.round((1 - price / comparePrice) * 100)
+    : null
+
   const badge = product.sellers
     ? `${product.sellers} SELLERS`
-    : product.flashDeal
-      ? 'FLASH DEAL'
-      : comparePrice && comparePrice > price
-        ? `${Math.round((1 - price / comparePrice) * 100)}% OFF`
+    : dealUnit
+      ? `🔥 ${percentOff}% OFF`
+      : percentOff
+        ? `${percentOff}% OFF`
         : null
 
   // Where this can be delivered
@@ -74,7 +87,7 @@ export default function ProductCard({ product, onSelectProduct }) {
       return
     }
 
-    addItem(product, 1, defaultUnit)
+    addItem(product, 1, shownUnit)
     setAdded(true)
     setTimeout(() => setAdded(false), 1200)
   }
@@ -89,7 +102,7 @@ export default function ProductCard({ product, onSelectProduct }) {
           overflow: 'hidden',
           cursor: 'pointer',
           transition: 'transform 0.15s, box-shadow 0.15s',
-          border: '1px solid rgba(0,0,0,0.06)',
+          border: `1px solid ${dealUnit ? '#FDBA74' : 'rgba(0,0,0,0.06)'}`,
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
@@ -135,10 +148,10 @@ export default function ProductCard({ product, onSelectProduct }) {
           ) : badge && (
             <span style={{
               position: 'absolute', top: 8, left: 8,
-              backgroundColor: product.flashDeal ? '#BE864B' : 'rgba(0,0,0,0.72)',
+              backgroundColor: dealUnit ? '#C2410C' : 'rgba(0,0,0,0.72)',
               color: 'white',
               fontSize: isMobile ? 10 : 11,
-              fontWeight: 700, letterSpacing: '0.06em',
+              fontWeight: 800, letterSpacing: '0.04em',
               padding: '3px 8px',
               borderRadius: 20,
             }}>
@@ -146,7 +159,8 @@ export default function ProductCard({ product, onSelectProduct }) {
             </span>
           )}
 
-          {!soldOut && comparePrice && comparePrice > price && (
+          {/* Sale tag for a normal "was" price (deals already have the badge) */}
+          {!soldOut && !dealUnit && comparePrice && comparePrice > price && (
             <span style={{
               position: 'absolute', top: 8, right: 8,
               backgroundColor: '#BE864B', color: 'white',
@@ -216,13 +230,13 @@ export default function ProductCard({ product, onSelectProduct }) {
             <div>
               <span style={{
                 fontSize: isMobile ? 15 : 18,
-                fontWeight: 900, color: 'var(--amber, #BE864B)',
+                fontWeight: 900, color: dealUnit ? '#C2410C' : 'var(--amber, #BE864B)',
               }}>
                 ₦{price.toLocaleString()}
               </span>
-              {defaultUnit && (
+              {shownUnit && (
                 <span style={{ fontSize: 11, color: '#9C9488', marginLeft: 4 }}>
-                  / {defaultUnit.label.toLowerCase()}
+                  / {shownUnit.label.toLowerCase()}
                 </span>
               )}
               {comparePrice && comparePrice > price && (
@@ -233,6 +247,13 @@ export default function ProductCard({ product, onSelectProduct }) {
                   ₦{comparePrice.toLocaleString()}
                 </span>
               )}
+
+              {dealUnit?.dealEndsAt && (
+                <div style={{ marginTop: 4 }}>
+                  <DealCountdown endsAt={dealUnit.dealEndsAt} />
+                </div>
+              )}
+
               {units && units.length > 1 && (
                 <p style={{ fontSize: 10, color: '#BE864B', fontWeight: 700, margin: '2px 0 0' }}>
                   {units.length} sizes available

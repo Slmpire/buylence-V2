@@ -88,7 +88,7 @@ export default function Navbar() {
       to: '/marketplace',
       active: location.pathname === '/marketplace' || location.pathname.startsWith('/category'),
     },
-    { label: 'SPECIAL DEALS', to: '/marketplace', active: location.pathname === '/special-deals' },
+       { label: 'SPECIAL DEALS', to: '/special-deals', active: location.pathname === '/special-deals' },
     { label: 'VENDORS', to: '/vendors', active: location.pathname.startsWith('/vendor/') || location.pathname === '/vendors' },
   ]
 
@@ -112,7 +112,7 @@ export default function Navbar() {
   const mobileLinks = [
     { label: 'Home', to: '/' },
     { label: 'Marketplace', to: '/marketplace' },
-    { label: 'Special Deals', to: '/marketplace' },
+    { label: 'Special Deals', to: '/special-deals' },
     { label: 'Vendors', to: '/vendors' },
     { label: portal.label, to: portal.to },
     ...(isLoggedIn

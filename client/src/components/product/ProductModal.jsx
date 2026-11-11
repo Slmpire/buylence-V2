@@ -4,6 +4,7 @@ import { X, MapPin, Store, Check, Minus, Plus, ShoppingBag, ShieldCheck, ArrowLe
 import useCartStore from '../../store/cartStore'
 import { useIsMobile } from '../../hooks/useWindowSize'
 import UnitPicker from './UnitPicker'
+import DealCountdown from './DealCountdown'
 
 const FALLBACK_IMG =
   'data:image/svg+xml;utf8,' +
@@ -122,7 +123,11 @@ export default function ProductModal({ product, isOpen, onClose, onBack, deliver
       const preferred = initialUnitKey
         ? list.find(u => u.stock > 0 && String(u.label).trim().toLowerCase() === initialUnitKey)
         : null
-      const first = preferred || list.find(u => u.stock > 0) || list[0]
+      // Otherwise start on an option that is on deal, then the first one in stock
+      const first = preferred
+        || list.find(u => u.onDeal && u.stock > 0)
+        || list.find(u => u.stock > 0)
+        || list[0]
       setSelectedUnitId(first?.id ?? null)
 
       document.body.style.overflow = 'hidden'
@@ -153,6 +158,7 @@ export default function ProductModal({ product, isOpen, onClose, onBack, deliver
 
   const price = unit ? unit.price : product.price
   const comparePrice = unit ? unit.comparePrice : product.comparePrice
+  const onDeal = !!unit?.onDeal
 
   const stockCount = unit
     ? unit.stock
@@ -312,14 +318,14 @@ export default function ProductModal({ product, isOpen, onClose, onBack, deliver
                 position: 'absolute', top: 10, left: 10,
                 display: 'flex', flexDirection: 'column', gap: 6,
               }}>
-                {product.flashDeal && (
+                {onDeal && (
                   <span style={{
-                    backgroundColor: '#BE864B', color: 'white',
+                    backgroundColor: '#C2410C', color: 'white',
                     fontSize: 11, fontWeight: 800, letterSpacing: '0.08em',
                     padding: '4px 8px', borderRadius: 6,
                     boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
                   }}>
-                    FLASH DEAL
+                    🔥 SPECIAL DEAL
                   </span>
                 )}
                 {discountPercent && (
@@ -418,13 +424,15 @@ export default function ProductModal({ product, isOpen, onClose, onBack, deliver
             {/* Price & stock */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              backgroundColor: 'white', padding: '12px 16px', borderRadius: 12,
-              border: '1px solid #E5DFD5', marginBottom: 16, gap: 10,
+              backgroundColor: onDeal ? '#FFF7ED' : 'white',
+              padding: '12px 16px', borderRadius: 12,
+              border: `1px solid ${onDeal ? '#FDBA74' : '#E5DFD5'}`,
+              marginBottom: 16, gap: 10,
             }}>
               <div>
                 <p style={label}>PRICE{unit ? ` PER ${unit.label.toUpperCase()}` : ''}</p>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                  <span style={{ fontSize: isMobile ? 20 : 24, fontWeight: 900, color: '#BE864B' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: isMobile ? 20 : 24, fontWeight: 900, color: onDeal ? '#C2410C' : '#BE864B' }}>
                     ₦{price.toLocaleString()}
                   </span>
                   {comparePrice && comparePrice > price && (
@@ -433,6 +441,11 @@ export default function ProductModal({ product, isOpen, onClose, onBack, deliver
                     </span>
                   )}
                 </div>
+                {onDeal && unit.dealEndsAt && (
+                  <div style={{ marginTop: 6 }}>
+                    <DealCountdown endsAt={unit.dealEndsAt} />
+                  </div>
+                )}
               </div>
 
               <div style={{ textAlign: 'right' }}>

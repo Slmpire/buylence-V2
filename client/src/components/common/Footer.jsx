@@ -9,7 +9,7 @@ const COLS = [
     links: [
       { label: 'All categories', to: '/marketplace' },
       { label: 'New arrivals', to: '/marketplace?sort=new' },
-      { label: 'Flash sales', to: '/marketplace?filter=flash' },
+      { label: 'Flash sales', to: '/special-deals' },
       { label: 'Bulk orders', to: '/marketplace?filter=bulk' },
     ],
   },

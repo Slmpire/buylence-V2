@@ -27,7 +27,7 @@ export default function UnitPicker({ units, selectedId, onSelect }) {
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
                 gap: 2, padding: '9px 14px', borderRadius: 10,
-                border: `2px solid ${active ? '#BE864B' : '#E5DFD5'}`,
+                border: `2px solid ${active ? '#BE864B' : u.onDeal ? '#FDBA74' : '#E5DFD5'}`,
                 backgroundColor: active ? '#FFF8F2' : 'white',
                 opacity: soldOut ? 0.5 : 1,
                 cursor: soldOut ? 'not-allowed' : 'pointer',
@@ -35,9 +35,18 @@ export default function UnitPicker({ units, selectedId, onSelect }) {
                 transition: 'all 0.15s',
               }}
             >
-              <span style={{ fontSize: 13, fontWeight: 800, color: '#1D1D1D' }}>{u.label}</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#BE864B' }}>
-                ₦{u.price.toLocaleString()}
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#1D1D1D' }}>
+                {u.onDeal && '🔥 '}{u.label}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#BE864B' }}>
+                  ₦{u.price.toLocaleString()}
+                </span>
+                {u.onDeal && u.comparePrice && (
+                  <span style={{ fontSize: 10, color: '#9C9488', textDecoration: 'line-through' }}>
+                    ₦{u.comparePrice.toLocaleString()}
+                  </span>
+                )}
               </span>
               {soldOut && (
                 <span style={{ fontSize: 10, fontWeight: 700, color: '#DC2626' }}>Sold out</span>

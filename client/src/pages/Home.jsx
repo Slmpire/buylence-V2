@@ -25,7 +25,7 @@ const CATEGORIES = [
   { label: 'Tubers', to: '/category/tubers' },
   { label: 'Pepper & Vegetables', to: '/category/vegetables' },
   { label: 'Proteins', to: '/category/proteins' },
-  { label: 'Special Offers', to: '/marketplace?filter=special' },
+  { label: 'Special Offers', to: '/special-deals' },
 ]
 
 const BROWSE_CATEGORIES = [
@@ -404,7 +404,7 @@ useEffect(() => {
                   Essential food bundle for the new semester.
                 </p>
                 <button
-                  onClick={() => navigate('/marketplace?filter=flash')}
+                  onClick={() => navigate('/special-deals')}
                   style={{
                     backgroundColor: 'white', color: 'var(--charcoal)',
                     border: 'none', borderRadius: 'var(--radius-pill)',

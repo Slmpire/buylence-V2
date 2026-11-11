@@ -7,6 +7,7 @@ import Toaster from './components/common/Toaster'
 import { VendorRoute, AuthRoute, RiderRoute, AdminRoute } from './components/common/ProtectedRoute'
 
 const Home = lazy(() => import('./pages/Home'))
+const SpecialDeals = lazy(() => import('./pages/SpecialDeals'))
 const Login = lazy(() => import('./pages/auth/Login'))
 const Signup = lazy(() => import('./pages/auth/Signup'))
 const Marketplace = lazy(() => import('./pages/marketplace/Marketplace'))
@@ -68,6 +69,7 @@ export default function App() {
         <Routes>
           {/* Public routes — anyone can access */}
           <Route path="/" element={<Home />} />
+          <Route path="/special-deals" element={<SpecialDeals />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/marketplace" element={<Marketplace />} />

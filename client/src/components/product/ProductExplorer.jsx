@@ -118,14 +118,14 @@ export default function ProductExplorer({ product, isOpen, onClose }) {
   // Sizes that exist across sellers, most common first (for "Compare by")
   const labels = useMemo(() => {
     const map = new Map()
-    ;(offers || []).forEach(o => {
-      o.units.forEach(u => {
-        const k = key(u.label)
-        const entry = map.get(k) || { key: k, label: u.label, count: 0 }
-        entry.count += 1
-        map.set(k, entry)
+      ; (offers || []).forEach(o => {
+        o.units.forEach(u => {
+          const k = key(u.label)
+          const entry = map.get(k) || { key: k, label: u.label, count: 0 }
+          entry.count += 1
+          map.set(k, entry)
+        })
       })
-    })
     return [...map.values()].sort((a, b) => b.count - a.count)
   }, [offers])
 
@@ -462,9 +462,22 @@ export default function ProductExplorer({ product, isOpen, onClose }) {
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     {r.price !== null ? (
                       <>
-                        <p style={{ fontSize: 18, fontWeight: 900, color: '#BE864B', margin: 0 }}>
+                        {r.unit?.onDeal && (
+                          <p style={{ fontSize: 10, fontWeight: 800, color: '#C2410C', margin: '0 0 2px' }}>
+                            🔥 DEAL
+                          </p>
+                        )}
+                        <p style={{
+                          fontSize: 18, fontWeight: 900, margin: 0,
+                          color: r.unit?.onDeal ? '#C2410C' : '#BE864B',
+                        }}>
                           ₦{r.price.toLocaleString()}
                         </p>
+                        {r.unit?.onDeal && r.unit.comparePrice && (
+                          <p style={{ fontSize: 11, color: '#9C9488', textDecoration: 'line-through', margin: 0 }}>
+                            ₦{r.unit.comparePrice.toLocaleString()}
+                          </p>
+                        )}
                         <p style={{ fontSize: 11, color: '#9C9488', margin: '0 0 4px' }}>
                           per {activeLabel.toLowerCase()}
                         </p>
