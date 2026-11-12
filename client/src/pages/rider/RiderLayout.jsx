@@ -65,14 +65,17 @@ export default function RiderLayout({ children }) {
       {/* ── Sidebar (desktop) ── */}
       {!isMobile && (
         <div style={{
-          width: 180, flexShrink: 0,
+          width: 190, flexShrink: 0,
           backgroundColor: '#1A1A1A',
           display: 'flex', flexDirection: 'column',
-          minHeight: '100vh', position: 'sticky', top: 0,
+          height: '100vh', position: 'sticky', top: 0,
+          overflowY: 'auto',
         }}>
           {/* Brand */}
-          <div style={{ padding: '20px 16px 16px' }}>
-           <Logo size="sm" light />
+          <div style={{ padding: '20px 16px 14px' }}>
+            <div style={{ marginBottom: 6 }}>
+              <Logo size={26} textSize={15} dark to="/rider/dashboard" />
+            </div>
             <p style={{ fontSize: 9, color: '#BE864B', letterSpacing: '0.1em', margin: 0, fontWeight: 700 }}>
               RIDER PORTAL
             </p>
@@ -91,7 +94,7 @@ export default function RiderLayout({ children }) {
               justifyContent: 'center', color: 'white',
               fontSize: 14, fontWeight: 900, marginBottom: 8,
             }}>
-              {firstName.charAt(0)}
+              {firstName.charAt(0).toUpperCase()}
             </div>
             <p style={{ fontSize: 12, fontWeight: 700, color: 'white', margin: '0 0 2px' }}>
               {user?.fullName || 'Rider'}
@@ -124,8 +127,24 @@ export default function RiderLayout({ children }) {
             })}
           </div>
 
-          {/* Logout */}
-          <div style={{ padding: '16px' }}>
+          {/* Bottom actions */}
+          <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <Link
+              to="/marketplace"
+              style={{
+                display: 'block', textAlign: 'center', padding: '9px',
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                color: 'rgba(255,255,255,0.7)',
+                border: 'none', borderRadius: 7,
+                fontSize: 12, fontWeight: 600, textDecoration: 'none',
+                fontFamily: 'Inter, sans-serif',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)' }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)' }}
+            >
+              Marketplace
+            </Link>
             <button
               onClick={handleLogout}
               style={{
@@ -158,9 +177,19 @@ export default function RiderLayout({ children }) {
           {isMobile ? (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-  <Logo size="sm" />
-  <span style={{ color: '#BE864B', fontSize: 10, fontWeight: 800, letterSpacing: '0.08em' }}>RIDER</span>
-</div>
+                <Logo size={24} textSize={13} to="/rider/dashboard" />
+                <span style={{
+                  color: '#BE864B',
+                  fontSize: 9,
+                  fontWeight: 800,
+                  letterSpacing: '0.08em',
+                  backgroundColor: 'rgba(190,134,75,0.12)',
+                  padding: '2px 6px',
+                  borderRadius: 4,
+                }}>
+                  RIDER
+                </span>
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <BellButton count={unreadCount} onClick={() => setShowNotifications(true)} />
                 <button
@@ -186,7 +215,7 @@ export default function RiderLayout({ children }) {
                   justifyContent: 'center', color: 'white',
                   fontSize: 12, fontWeight: 900,
                 }}>
-                  {firstName.charAt(0)}
+                  {firstName.charAt(0).toUpperCase()}
                 </div>
               </div>
             </>
@@ -202,7 +231,7 @@ export default function RiderLayout({ children }) {
             padding: '20px',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-              <p style={{ fontSize: 16, fontWeight: 900, color: 'white', margin: 0 }}>BUYLENCE RIDER</p>
+              <Logo size={26} textSize={15} dark to="/rider/dashboard" onClick={() => setMenuOpen(false)} />
               <button
                 onClick={() => setMenuOpen(false)}
                 aria-label="Close menu"
@@ -226,6 +255,19 @@ export default function RiderLayout({ children }) {
                 {item.icon} {item.label}
               </Link>
             ))}
+            <Link
+              to="/marketplace"
+              onClick={() => setMenuOpen(false)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '16px 0', textDecoration: 'none',
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                color: 'rgba(255,255,255,0.7)',
+                fontSize: 16,
+              }}
+            >
+              Marketplace
+            </Link>
             <button
               onClick={handleLogout}
               style={{

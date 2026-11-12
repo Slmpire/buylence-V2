@@ -65,71 +65,75 @@ export default function RiderHistory() {
           backgroundColor: 'white', border: '1px solid rgba(0,0,0,0.07)',
           borderRadius: 14, overflow: 'hidden',
         }}>
-          {/* Table header */}
-          <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr 80px 90px 80px',
-            padding: '10px 20px', backgroundColor: '#F7F4EF',
-            borderBottom: '1px solid rgba(0,0,0,0.06)',
-          }}>
-            {['ORDER', 'ROUTE', 'FEE', 'TIME', 'DATE'].map(h => (
-              <p key={h} style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#9C9488', margin: 0 }}>
-                {h}
-              </p>
-            ))}
-          </div>
-
-          {orders.map((order, i) => {
-            const date = new Date(order.riderConfirmedAt || order.createdAt).toLocaleDateString('en-NG', {
-              day: 'numeric', month: 'short',
-            })
-            return (
-              <div
-                key={order.id}
-                style={{
-                  display: 'grid', gridTemplateColumns: '1fr 1fr 80px 90px 80px',
-                  padding: '14px 20px', alignItems: 'center',
-                  borderBottom: i < orders.length - 1 ? '1px solid rgba(0,0,0,0.04)' : 'none',
-                }}
-              >
-                <div>
-                  <p style={{ fontSize: 12, fontWeight: 800, color: '#BE864B', margin: '0 0 2px' }}>
-                    {order.orderNumber}
+          <div style={{ overflowX: 'auto' }}>
+            <div style={{ minWidth: 540 }}>
+              {/* Table header */}
+              <div style={{
+                display: 'grid', gridTemplateColumns: '1fr 1fr 80px 90px 80px',
+                padding: '10px 20px', backgroundColor: '#F7F4EF',
+                borderBottom: '1px solid rgba(0,0,0,0.06)',
+              }}>
+                {['ORDER', 'ROUTE', 'FEE', 'TIME', 'DATE'].map(h => (
+                  <p key={h} style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#9C9488', margin: 0 }}>
+                    {h}
                   </p>
-                  <p style={{ fontSize: 11, color: '#9C9488', margin: 0 }}>
-                    {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''}
-                  </p>
-                </div>
-
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                    <MapPin size={10} color="#9C9488" />
-                    <p style={{ fontSize: 11, color: '#7F766B', margin: 0 }}>
-                      {order.vendor?.storeName || '—'}
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <MapPin size={10} color="#BE864B" />
-                    <p style={{ fontSize: 11, color: '#7F766B', margin: 0 }}>
-                      {order.deliveryHall}
-                    </p>
-                  </div>
-                </div>
-
-                <p style={{ fontSize: 13, fontWeight: 700, color: '#16A34A', margin: 0 }}>
-                  ₦{order.deliveryFee?.toLocaleString() || '200'}
-                </p>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Clock size={11} color="#9C9488" />
-                  <p style={{ fontSize: 11, color: '#9C9488', margin: 0 }}>
-                    {order.deliveryMinutes ? `${order.deliveryMinutes} min` : '—'}
-                  </p>
-                </div>
-
-                <p style={{ fontSize: 11, color: '#9C9488', margin: 0 }}>{date}</p>
+                ))}
               </div>
-            )
-          })}
+
+              {orders.map((order, i) => {
+                const date = new Date(order.riderConfirmedAt || order.createdAt).toLocaleDateString('en-NG', {
+                  day: 'numeric', month: 'short',
+                })
+                return (
+                  <div
+                    key={order.id}
+                    style={{
+                      display: 'grid', gridTemplateColumns: '1fr 1fr 80px 90px 80px',
+                      padding: '14px 20px', alignItems: 'center',
+                      borderBottom: i < orders.length - 1 ? '1px solid rgba(0,0,0,0.04)' : 'none',
+                    }}
+                  >
+                    <div>
+                      <p style={{ fontSize: 12, fontWeight: 800, color: '#BE864B', margin: '0 0 2px' }}>
+                        {order.orderNumber}
+                      </p>
+                      <p style={{ fontSize: 11, color: '#9C9488', margin: 0 }}>
+                        {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                        <MapPin size={10} color="#9C9488" />
+                        <p style={{ fontSize: 11, color: '#7F766B', margin: 0 }}>
+                          {order.vendor?.storeName || '—'}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <MapPin size={10} color="#BE864B" />
+                        <p style={{ fontSize: 11, color: '#7F766B', margin: 0 }}>
+                          {order.deliveryHall}
+                        </p>
+                      </div>
+                    </div>
+
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#16A34A', margin: 0 }}>
+                      ₦{order.deliveryFee?.toLocaleString() || '200'}
+                    </p>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Clock size={11} color="#9C9488" />
+                      <p style={{ fontSize: 11, color: '#9C9488', margin: 0 }}>
+                        {order.deliveryMinutes ? `${order.deliveryMinutes} min` : '—'}
+                      </p>
+                    </div>
+
+                    <p style={{ fontSize: 11, color: '#9C9488', margin: 0 }}>{date}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
       )}
 

@@ -253,7 +253,7 @@ export default function RiderDashboard() {
     <RiderLayout>
       {/* Stats bar */}
       <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
         gap: 12, marginBottom: 24,
       }}>
         {[
