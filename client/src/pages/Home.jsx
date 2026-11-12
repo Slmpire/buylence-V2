@@ -10,11 +10,11 @@ import ProductCard from '../components/product/ProductCard'
 import api from '../lib/axios'
 
 const HERO_IMAGES = [
+  'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1920&q=95',
   '/vegetables.jpg',
-  'https://images.unsplash.com/photo-1542838132-92c53300491e?w=1400&q=90',
-  'https://images.unsplash.com/photo-1574316945092-d40ea64d7ad5?w=1400&q=90',
-  'https://images.unsplash.com/photo-1534482421-64566f976cfa?w=1400&q=90',
-  'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=1400&q=90',
+  'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=1920&q=95',
+  'https://images.unsplash.com/photo-1534482421-64566f976cfa?auto=format&fit=crop&w=1920&q=95',
+  'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1920&q=95',
 ]
 
 const CATEGORIES = [
@@ -29,18 +29,18 @@ const CATEGORIES = [
 ]
 
 const BROWSE_CATEGORIES = [
-  { label: 'Grains', to: '/category/grains', img: 'https://images.unsplash.com/photo-1536304993881-ff86e0c9b516?w=400&q=80' },
-  { label: 'Proteins', to: '/category/proteins', img: 'https://images.unsplash.com/photo-1615141982883-c7ad0e69fd62?w=400&q=80' },
-  { label: 'Tubers', to: '/category/tubers', img: 'https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=400&q=80' },
-  { label: 'Pure Oils', to: '/category/oils', img: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&q=80' },
-  { label: 'Vegetables', to: '/category/vegetables', img: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&q=80' },
+  { label: 'Grains', to: '/category/grains', img: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=85' },
+  { label: 'Proteins', to: '/category/proteins', img: 'https://images.unsplash.com/photo-1615141982883-c7ad0e69fd62?auto=format&fit=crop&w=600&q=85' },
+  { label: 'Tubers', to: '/category/tubers', img: 'https://images.unsplash.com/photo-1603048297172-c92544798d5a?auto=format&fit=crop&w=600&q=85' },
+  { label: 'Pure Oils', to: '/category/oils', img: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=600&q=85' },
+  { label: 'Vegetables', to: '/category/vegetables', img: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=85' },
 ]
 
 const STUDENT_FAVORITES = [
-  { id: 1, name: 'Ofada Rice (1kg)', tag: 'LOCAL HARVEST', price: 3200, sellers: 7, img: 'https://images.unsplash.com/photo-1536304993881-ff86e0c9b516?w=400&q=80' },
-  { id: 2, name: 'Garri (5kg)', tag: 'IJEBU WHITE', price: 5500, sellers: 11, img: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&q=80' },
-  { id: 3, name: 'Groundnut Oil (75cl)', tag: 'COLD PRESSED', price: 2400, sellers: 4, img: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&q=80' },
-  { id: 4, name: 'Zobo Drink (1L)', tag: 'FRESH DAILY', price: 1000, sellers: 3, img: 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=400&q=80' },
+  { id: 1, name: 'Ofada Rice (1kg)', tag: 'LOCAL HARVEST', price: 3200, sellers: 7, img: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=85' },
+  { id: 2, name: 'Garri (5kg)', tag: 'IJEBU WHITE', price: 5500, sellers: 11, img: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=85' },
+  { id: 3, name: 'Groundnut Oil (75cl)', tag: 'COLD PRESSED', price: 2400, sellers: 4, img: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=600&q=85' },
+  { id: 4, name: 'Zobo Drink (1L)', tag: 'FRESH DAILY', price: 1000, sellers: 3, img: 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?auto=format&fit=crop&w=600&q=85' },
 ]
 
 const FEATURES = [
@@ -68,13 +68,19 @@ useEffect(() => {
 }, [])
 
   useEffect(() => {
+    // Preload hero images so slide transitions are instant and crisp
+    HERO_IMAGES.forEach(src => {
+      const img = new Image()
+      img.src = src
+    })
+
     const interval = setInterval(() => {
       setHeroOpacity(0)
       setTimeout(() => {
         setHeroIdx(i => (i + 1) % HERO_IMAGES.length)
         setHeroOpacity(1)
-      }, 400)
-    }, 4000)
+      }, 350)
+    }, 5000)
     return () => clearInterval(interval)
   }, [])
 
@@ -85,21 +91,26 @@ useEffect(() => {
       {/* ── HERO ── */}
       <section style={{
         position: 'relative', overflow: 'hidden',
-        minHeight: isMobile ? 460 : 560, backgroundColor: '#E8E2DA',
+        minHeight: isMobile ? 480 : 580, backgroundColor: '#1E1A16',
       }}>
         <img
-          src={HERO_IMAGES[heroIdx]} alt="hero"
+          src={HERO_IMAGES[heroIdx]} alt="Fresh campus groceries"
+          loading="eager"
+          decoding="sync"
           style={{
             position: 'absolute', inset: 0,
             width: '100%', height: '100%', objectFit: 'cover',
-            opacity: heroOpacity * 0.35, transition: 'opacity 0.4s ease',
+            objectPosition: 'center center',
+            opacity: heroOpacity,
+            transition: 'opacity 0.4s ease',
+            filter: 'contrast(1.04) saturate(1.06)',
           }}
         />
         <div style={{
           position: 'absolute', inset: 0,
           background: isMobile
-            ? 'linear-gradient(to bottom, rgba(232,226,218,0.3) 0%, rgba(232,226,218,0.95) 55%)'
-            : 'linear-gradient(to right, rgba(232,226,218,1) 40%, rgba(232,226,218,0) 100%)',
+            ? 'linear-gradient(to bottom, rgba(20,16,12,0.12) 0%, rgba(20,16,12,0.55) 100%)'
+            : 'linear-gradient(90deg, rgba(20,16,12,0.55) 0%, rgba(20,16,12,0.22) 48%, rgba(20,16,12,0.05) 100%)',
         }} />
         <div style={{
           position: 'relative', zIndex: 2,
